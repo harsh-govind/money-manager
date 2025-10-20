@@ -35,7 +35,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <div className="min-h-screen">
+              <div className="container mx-auto">
+                {children}
+              </div>
+            </div>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
