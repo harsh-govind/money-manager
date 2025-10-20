@@ -8,8 +8,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { DateTimePicker } from "@/components/ui/custom/DateTimePicker";
@@ -26,7 +25,7 @@ import {
 import { Connection, TransactionType, SplitMethod, Category } from "@/types/transaction";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import axios from "axios";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -236,7 +235,7 @@ export default function DashboardPage() {
             </div>
 
             <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="min-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Add Transaction</DialogTitle>
                         <DialogDescription>
@@ -272,11 +271,11 @@ export default function DashboardPage() {
                             <DateTimePicker date={transactionDate} setDate={setTransactionDate} />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="flex flex-col gap-1">
+                        <div className="flex gap-4 w-full">
+                            <div className="flex flex-col gap-1 w-1/2">
                                 <Label htmlFor="transaction-type" className="px-1">Type *</Label>
                                 <Select value={transactionType} onValueChange={(value) => setTransactionType(value as TransactionType)}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select type" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -287,40 +286,40 @@ export default function DashboardPage() {
                                 </Select>
                             </div>
 
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1 w-1/2">
                                 <div className="flex items-center justify-between px-1">
                                     <Label htmlFor="transaction-category">Category</Label>
+                                </div>
+                                <div className="flex gap-2 w-full items-center">
+                                    <Select value={transactionCategory} onValueChange={(value) => setTransactionCategory(value)}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select category" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {categories.length === 0 ? (
+                                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                    No categories yet
+                                                </div>
+                                            ) : (
+                                                categories.map((category) => (
+                                                    <SelectItem key={category.id} value={category.id}>
+                                                        {category.emoji} {category.title}
+                                                    </SelectItem>
+                                                ))
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+
                                     <Button
                                         type="button"
                                         variant="ghost"
-                                        size="sm"
-                                        className="h-6 px-2 text-xs"
                                         onClick={() => {
                                             setCategoryDialogOpen(true);
                                         }}
                                     >
-                                        <Plus className="h-3 w-3 mr-1" />
-                                        New
+                                        <Plus />
                                     </Button>
                                 </div>
-                                <Select value={transactionCategory} onValueChange={(value) => setTransactionCategory(value)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categories.length === 0 ? (
-                                            <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                                No categories yet
-                                            </div>
-                                        ) : (
-                                            categories.map((category) => (
-                                                <SelectItem key={category.id} value={category.id}>
-                                                    {category.emoji} {category.title}
-                                                </SelectItem>
-                                            ))
-                                        )}
-                                    </SelectContent>
-                                </Select>
                             </div>
                         </div>
 
