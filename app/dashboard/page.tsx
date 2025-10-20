@@ -310,8 +310,14 @@ export default function DashboardPage() {
                 </div>
 
 
-                <div>
-                    hi
+                <div className="border h-[calc(100vh-160px)] rounded-md p-2">
+                    {
+                        activeTab === "transactions" && (
+                            <div>
+                                TRAS
+                            </div>
+                        )
+                    }
                 </div>
 
             </div>
