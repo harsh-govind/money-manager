@@ -1,11 +1,45 @@
 import { prisma } from "@/lib/prisma";
 
-export async function getCategoriesByUserId(userId: string) {
+type GetCategoriesFilters = {
+    search?: string;
+    limit?: number;
+    cursor?: string;
+}
+
+export async function getCategoriesByUserId(userId: string, filters?: GetCategoriesFilters) {
     try {
-        return await prisma.category.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' }
+        const {
+            search,
+            limit = 20,
+            cursor
+        } = filters || {};
+
+        const where: any = { userId };
+
+        if (search) {
+            where.title = { contains: search, mode: 'insensitive' };
+        }
+
+        const categories = await prisma.category.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: limit + 1,
+            ...(cursor && {
+                skip: 1,
+                cursor: { id: cursor }
+            })
         });
+
+        let nextCursor: string | undefined = undefined;
+        if (categories.length > limit) {
+            const nextItem = categories.pop();
+            nextCursor = nextItem?.id;
+        }
+
+        return {
+            categories,
+            nextCursor
+        };
     } catch (error) {
         console.error('Error in getCategoriesByUserId:', error);
         throw new Error('Failed to get categories');

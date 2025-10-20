@@ -1,11 +1,45 @@
 import { prisma } from "@/lib/prisma";
 
-export async function getSourcesByUserId(userId: string) {
+type GetSourcesFilters = {
+    search?: string;
+    limit?: number;
+    cursor?: string;
+}
+
+export async function getSourcesByUserId(userId: string, filters?: GetSourcesFilters) {
     try {
-        return await prisma.source.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' }
+        const {
+            search,
+            limit = 20,
+            cursor
+        } = filters || {};
+
+        const where: any = { userId };
+
+        if (search) {
+            where.name = { contains: search, mode: 'insensitive' };
+        }
+
+        const sources = await prisma.source.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: limit + 1,
+            ...(cursor && {
+                skip: 1,
+                cursor: { id: cursor }
+            })
         });
+
+        let nextCursor: string | undefined = undefined;
+        if (sources.length > limit) {
+            const nextItem = sources.pop();
+            nextCursor = nextItem?.id;
+        }
+
+        return {
+            sources,
+            nextCursor
+        };
     } catch (error) {
         console.error('Error in getSourcesByUserId:', error);
         throw new Error('Failed to get sources');

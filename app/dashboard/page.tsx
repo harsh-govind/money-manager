@@ -25,7 +25,7 @@ import {
 import { Connection, TransactionType, SplitMethod, Category, Source, SourceType, Transaction } from "@/types/transaction";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Search, Filter, X, Calendar, ArrowUpDown, TrendingUp, TrendingDown, ArrowRightLeft, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Search, Filter, X, Calendar, ArrowUpDown, TrendingUp, TrendingDown, ArrowRightLeft, RefreshCw, Edit } from "lucide-react";
 import axios from "axios";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -45,10 +45,13 @@ export default function DashboardPage() {
 
     const [newCategoryTitle, setNewCategoryTitle] = useState<string>("");
     const [newCategoryEmoji, setNewCategoryEmoji] = useState<string>("");
+    const [editingCategory, setEditingCategory] = useState<Category | null>(null);
     const [newConnectionName, setNewConnectionName] = useState<string>("");
+    const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
     const [newSourceName, setNewSourceName] = useState<string>("");
     const [newSourceType, setNewSourceType] = useState<SourceType>("BANK");
     const [newSourceAmount, setNewSourceAmount] = useState<number>(0);
+    const [editingSource, setEditingSource] = useState<Source | null>(null);
 
     const [transactionAmount, setTransactionAmount] = useState<number | null>(null);
     const [transactionDate, setTransactionDate] = useState<Date>(new Date());
@@ -100,7 +103,37 @@ export default function DashboardPage() {
     const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
     const [hasLoadedTransactions, setHasLoadedTransactions] = useState<boolean>(false);
 
+    const [categoriesData, setCategoriesData] = useState<Category[]>([]);
+    const [loadingCategories, setLoadingCategories] = useState<boolean>(false);
+    const [hasMoreCategories, setHasMoreCategories] = useState<boolean>(true);
+    const [categoriesCursor, setCategoriesCursor] = useState<string | null>(null);
+    const [categorySearchQuery, setCategorySearchQuery] = useState<string>("");
+    const [debouncedCategorySearch, setDebouncedCategorySearch] = useState<string>("");
+    const [hasLoadedCategories, setHasLoadedCategories] = useState<boolean>(false);
+    const [isRefreshingCategories, setIsRefreshingCategories] = useState<boolean>(false);
+
+    const [connectionsData, setConnectionsData] = useState<Connection[]>([]);
+    const [loadingConnections, setLoadingConnections] = useState<boolean>(false);
+    const [hasMoreConnections, setHasMoreConnections] = useState<boolean>(true);
+    const [connectionsCursor, setConnectionsCursor] = useState<string | null>(null);
+    const [connectionSearchQuery, setConnectionSearchQuery] = useState<string>("");
+    const [debouncedConnectionSearch, setDebouncedConnectionSearch] = useState<string>("");
+    const [hasLoadedConnections, setHasLoadedConnections] = useState<boolean>(false);
+    const [isRefreshingConnections, setIsRefreshingConnections] = useState<boolean>(false);
+
+    const [sourcesData, setSourcesData] = useState<Source[]>([]);
+    const [loadingSources, setLoadingSources] = useState<boolean>(false);
+    const [hasMoreSources, setHasMoreSources] = useState<boolean>(true);
+    const [sourcesCursor, setSourcesCursor] = useState<string | null>(null);
+    const [sourceSearchQuery, setSourceSearchQuery] = useState<string>("");
+    const [debouncedSourceSearch, setDebouncedSourceSearch] = useState<string>("");
+    const [hasLoadedSources, setHasLoadedSources] = useState<boolean>(false);
+    const [isRefreshingSources, setIsRefreshingSources] = useState<boolean>(false);
+
     const observerTarget = useRef<HTMLDivElement>(null);
+    const categoriesObserverTarget = useRef<HTMLDivElement>(null);
+    const connectionsObserverTarget = useRef<HTMLDivElement>(null);
+    const sourcesObserverTarget = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         loadCategories();
@@ -116,6 +149,27 @@ export default function DashboardPage() {
     }, [searchQuery]);
 
     useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedCategorySearch(categorySearchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [categorySearchQuery]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedConnectionSearch(connectionSearchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [connectionSearchQuery]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSourceSearch(sourceSearchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [sourceSearchQuery]);
+
+    useEffect(() => {
         if (activeTab === "transactions" && !hasLoadedTransactions) {
             resetAndLoadTransactions();
             setHasLoadedTransactions(true);
@@ -127,6 +181,45 @@ export default function DashboardPage() {
             resetAndLoadTransactions();
         }
     }, [debouncedSearch, selectedCategories, selectedConnections, selectedSources, selectedTypes, dateFilter, customDateFrom, customDateTo]);
+
+    useEffect(() => {
+        if (activeTab === "categories" && !hasLoadedCategories) {
+            resetAndLoadCategoriesData();
+            setHasLoadedCategories(true);
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab === "categories" && hasLoadedCategories) {
+            resetAndLoadCategoriesData();
+        }
+    }, [debouncedCategorySearch]);
+
+    useEffect(() => {
+        if (activeTab === "connections" && !hasLoadedConnections) {
+            resetAndLoadConnectionsData();
+            setHasLoadedConnections(true);
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab === "connections" && hasLoadedConnections) {
+            resetAndLoadConnectionsData();
+        }
+    }, [debouncedConnectionSearch]);
+
+    useEffect(() => {
+        if (activeTab === "sources" && !hasLoadedSources) {
+            resetAndLoadSourcesData();
+            setHasLoadedSources(true);
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab === "sources" && hasLoadedSources) {
+            resetAndLoadSourcesData();
+        }
+    }, [debouncedSourceSearch]);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -148,6 +241,69 @@ export default function DashboardPage() {
             }
         };
     }, [hasMore, loadingTransactions, cursor, activeTab]);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            entries => {
+                if (entries[0].isIntersecting && hasMoreCategories && !loadingCategories && activeTab === "categories") {
+                    loadMoreCategoriesData();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (categoriesObserverTarget.current) {
+            observer.observe(categoriesObserverTarget.current);
+        }
+
+        return () => {
+            if (categoriesObserverTarget.current) {
+                observer.unobserve(categoriesObserverTarget.current);
+            }
+        };
+    }, [hasMoreCategories, loadingCategories, categoriesCursor, activeTab]);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            entries => {
+                if (entries[0].isIntersecting && hasMoreConnections && !loadingConnections && activeTab === "connections") {
+                    loadMoreConnectionsData();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (connectionsObserverTarget.current) {
+            observer.observe(connectionsObserverTarget.current);
+        }
+
+        return () => {
+            if (connectionsObserverTarget.current) {
+                observer.unobserve(connectionsObserverTarget.current);
+            }
+        };
+    }, [hasMoreConnections, loadingConnections, connectionsCursor, activeTab]);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            entries => {
+                if (entries[0].isIntersecting && hasMoreSources && !loadingSources && activeTab === "sources") {
+                    loadMoreSourcesData();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (sourcesObserverTarget.current) {
+            observer.observe(sourcesObserverTarget.current);
+        }
+
+        return () => {
+            if (sourcesObserverTarget.current) {
+                observer.unobserve(sourcesObserverTarget.current);
+            }
+        };
+    }, [hasMoreSources, loadingSources, sourcesCursor, activeTab]);
 
     const loadCategories = async () => {
         try {
@@ -336,6 +492,276 @@ export default function DashboardPage() {
         }, 500);
     };
 
+    const buildCategoryQueryParams = (cursorOverride?: string | null) => {
+        const params = new URLSearchParams();
+
+        if (debouncedCategorySearch) params.append('search', debouncedCategorySearch);
+        params.append('limit', '20');
+
+        const cursorToUse = cursorOverride !== undefined ? cursorOverride : categoriesCursor;
+        if (cursorToUse) params.append('cursor', cursorToUse);
+
+        return params.toString();
+    };
+
+    const resetAndLoadCategoriesData = async () => {
+        setCategoriesData([]);
+        setCategoriesCursor(null);
+        setHasMoreCategories(true);
+        await loadCategoriesData(null);
+    };
+
+    const loadCategoriesData = async (currentCursor: string | null) => {
+        if (loadingCategories) return;
+
+        try {
+            setLoadingCategories(true);
+            const queryParams = buildCategoryQueryParams(currentCursor);
+            const response = await axios.get(`/api/category?${queryParams}`);
+
+            const newCategories = response.data.categories;
+            const nextCursor = response.data.nextCursor;
+
+            if (currentCursor) {
+                setCategoriesData(prev => [...prev, ...newCategories]);
+            } else {
+                setCategoriesData(newCategories);
+            }
+
+            setCategoriesCursor(nextCursor || null);
+            setHasMoreCategories(!!nextCursor);
+        } catch (error) {
+            console.error('Error loading categories:', error);
+            toast.error('Failed to load categories');
+        } finally {
+            setLoadingCategories(false);
+        }
+    };
+
+    const loadMoreCategoriesData = () => {
+        if (categoriesCursor && !loadingCategories) {
+            loadCategoriesData(categoriesCursor);
+        }
+    };
+
+    const handleRefreshCategories = async () => {
+        setIsRefreshingCategories(true);
+        await resetAndLoadCategoriesData();
+        setTimeout(() => {
+            setIsRefreshingCategories(false);
+        }, 500);
+    };
+
+    const openEditCategory = (category: Category) => {
+        setEditingCategory(category);
+        setNewCategoryTitle(category.title);
+        setNewCategoryEmoji(category.emoji);
+        setCategoryDialogOpen(true);
+    };
+
+    const closeEditCategory = () => {
+        setEditingCategory(null);
+        setNewCategoryTitle("");
+        setNewCategoryEmoji("");
+        setCategoryDialogOpen(false);
+    };
+
+    const handleDeleteCategory = async (categoryId: string) => {
+        if (!confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/category?id=${categoryId}`);
+            setCategoriesData(categoriesData.filter(cat => cat.id !== categoryId));
+            await loadCategories();
+            toast.success('Category deleted successfully');
+        } catch (error) {
+            console.error('Error deleting category:', error);
+            toast.error('Failed to delete category');
+        }
+    };
+
+    const buildConnectionQueryParams = (cursorOverride?: string | null) => {
+        const params = new URLSearchParams();
+
+        if (debouncedConnectionSearch) params.append('search', debouncedConnectionSearch);
+        params.append('limit', '20');
+
+        const cursorToUse = cursorOverride !== undefined ? cursorOverride : connectionsCursor;
+        if (cursorToUse) params.append('cursor', cursorToUse);
+
+        return params.toString();
+    };
+
+    const resetAndLoadConnectionsData = async () => {
+        setConnectionsData([]);
+        setConnectionsCursor(null);
+        setHasMoreConnections(true);
+        await loadConnectionsData(null);
+    };
+
+    const loadConnectionsData = async (currentCursor: string | null) => {
+        if (loadingConnections) return;
+
+        try {
+            setLoadingConnections(true);
+            const queryParams = buildConnectionQueryParams(currentCursor);
+            const response = await axios.get(`/api/connection?${queryParams}`);
+
+            const newConnections = response.data.connections;
+            const nextCursor = response.data.nextCursor;
+
+            if (currentCursor) {
+                setConnectionsData(prev => [...prev, ...newConnections]);
+            } else {
+                setConnectionsData(newConnections);
+            }
+
+            setConnectionsCursor(nextCursor || null);
+            setHasMoreConnections(!!nextCursor);
+        } catch (error) {
+            console.error('Error loading connections:', error);
+            toast.error('Failed to load connections');
+        } finally {
+            setLoadingConnections(false);
+        }
+    };
+
+    const loadMoreConnectionsData = () => {
+        if (connectionsCursor && !loadingConnections) {
+            loadConnectionsData(connectionsCursor);
+        }
+    };
+
+    const handleRefreshConnections = async () => {
+        setIsRefreshingConnections(true);
+        await resetAndLoadConnectionsData();
+        setTimeout(() => {
+            setIsRefreshingConnections(false);
+        }, 500);
+    };
+
+    const openEditConnection = (connection: Connection) => {
+        setEditingConnection(connection);
+        setNewConnectionName(connection.name);
+        setConnectionDialogOpen(true);
+    };
+
+    const closeEditConnection = () => {
+        setEditingConnection(null);
+        setNewConnectionName("");
+        setConnectionDialogOpen(false);
+    };
+
+    const handleDeleteConnection = async (connectionId: string) => {
+        if (!confirm('Are you sure you want to delete this connection? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/connection?id=${connectionId}`);
+            setConnectionsData(connectionsData.filter(conn => conn.id !== connectionId));
+            await loadConnections();
+            toast.success('Connection deleted successfully');
+        } catch (error) {
+            console.error('Error deleting connection:', error);
+            toast.error('Failed to delete connection');
+        }
+    };
+
+    const buildSourceQueryParams = (cursorOverride?: string | null) => {
+        const params = new URLSearchParams();
+
+        if (debouncedSourceSearch) params.append('search', debouncedSourceSearch);
+        params.append('limit', '20');
+
+        const cursorToUse = cursorOverride !== undefined ? cursorOverride : sourcesCursor;
+        if (cursorToUse) params.append('cursor', cursorToUse);
+
+        return params.toString();
+    };
+
+    const resetAndLoadSourcesData = async () => {
+        setSourcesData([]);
+        setSourcesCursor(null);
+        setHasMoreSources(true);
+        await loadSourcesData(null);
+    };
+
+    const loadSourcesData = async (currentCursor: string | null) => {
+        if (loadingSources) return;
+
+        try {
+            setLoadingSources(true);
+            const queryParams = buildSourceQueryParams(currentCursor);
+            const response = await axios.get(`/api/source?${queryParams}`);
+
+            const newSources = response.data.sources;
+            const nextCursor = response.data.nextCursor;
+
+            if (currentCursor) {
+                setSourcesData(prev => [...prev, ...newSources]);
+            } else {
+                setSourcesData(newSources);
+            }
+
+            setSourcesCursor(nextCursor || null);
+            setHasMoreSources(!!nextCursor);
+        } catch (error) {
+            console.error('Error loading sources:', error);
+            toast.error('Failed to load sources');
+        } finally {
+            setLoadingSources(false);
+        }
+    };
+
+    const loadMoreSourcesData = () => {
+        if (sourcesCursor && !loadingSources) {
+            loadSourcesData(sourcesCursor);
+        }
+    };
+
+    const handleRefreshSources = async () => {
+        setIsRefreshingSources(true);
+        await resetAndLoadSourcesData();
+        setTimeout(() => {
+            setIsRefreshingSources(false);
+        }, 500);
+    };
+
+    const openEditSource = (source: Source) => {
+        setEditingSource(source);
+        setNewSourceName(source.name);
+        setNewSourceType(source.type);
+        setNewSourceAmount(source.amount);
+        setSourceDialogOpen(true);
+    };
+
+    const closeEditSource = () => {
+        setEditingSource(null);
+        setNewSourceName("");
+        setNewSourceType("BANK");
+        setNewSourceAmount(0);
+        setSourceDialogOpen(false);
+    };
+
+    const handleDeleteSource = async (sourceId: string) => {
+        if (!confirm('Are you sure you want to delete this source? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/source?id=${sourceId}`);
+            setSourcesData(sourcesData.filter(src => src.id !== sourceId));
+            await loadSources();
+            toast.success('Source deleted successfully');
+        } catch (error) {
+            console.error('Error deleting source:', error);
+            toast.error('Failed to delete source');
+        }
+    };
+
     const createCategory = async () => {
         if (!newCategoryTitle || !newCategoryEmoji) {
             toast.error('Please fill all fields');
@@ -343,18 +769,38 @@ export default function DashboardPage() {
         }
 
         try {
-            const response = await axios.post('/api/category', {
-                title: newCategoryTitle,
-                emoji: newCategoryEmoji
-            });
-            setCategories([response.data.category, ...categories]);
+            if (editingCategory) {
+                const response = await axios.patch('/api/category', {
+                    id: editingCategory.id,
+                    title: newCategoryTitle,
+                    emoji: newCategoryEmoji
+                });
+                setCategories(categories.map(cat =>
+                    cat.id === editingCategory.id ? response.data.category : cat
+                ));
+                setCategoriesData(categoriesData.map(cat =>
+                    cat.id === editingCategory.id ? response.data.category : cat
+                ));
+                toast.success(response.data.message);
+            } else {
+                const response = await axios.post('/api/category', {
+                    title: newCategoryTitle,
+                    emoji: newCategoryEmoji
+                });
+                setCategories([response.data.category, ...categories]);
+                if (activeTab === "categories") {
+                    resetAndLoadCategoriesData();
+                }
+                toast.success(response.data.message);
+            }
+
             setNewCategoryTitle("");
             setNewCategoryEmoji("");
+            setEditingCategory(null);
             setCategoryDialogOpen(false);
-            toast.success(response.data.message);
         } catch (error) {
-            console.error('Error creating category:', error);
-            toast.error('Failed to create category');
+            console.error('Error saving category:', error);
+            toast.error('Failed to save category');
         }
     };
 
@@ -365,22 +811,41 @@ export default function DashboardPage() {
         }
 
         try {
-            const response = await axios.post('/api/connection', {
-                name: newConnectionName
-            });
-            const newConnection = {
-                ...response.data.connection,
-                selected: false,
-                amount: 0,
-                percentage: 0
-            };
-            setAvailableConnections([newConnection, ...availableConnections]);
+            if (editingConnection) {
+                const response = await axios.patch('/api/connection', {
+                    id: editingConnection.id,
+                    name: newConnectionName
+                });
+                setAvailableConnections(availableConnections.map(conn =>
+                    conn.id === editingConnection.id ? { ...response.data.connection, selected: conn.selected, amount: conn.amount, percentage: conn.percentage } : conn
+                ));
+                setConnectionsData(connectionsData.map(conn =>
+                    conn.id === editingConnection.id ? response.data.connection : conn
+                ));
+                toast.success(response.data.message);
+            } else {
+                const response = await axios.post('/api/connection', {
+                    name: newConnectionName
+                });
+                const newConnection = {
+                    ...response.data.connection,
+                    selected: false,
+                    amount: 0,
+                    percentage: 0
+                };
+                setAvailableConnections([newConnection, ...availableConnections]);
+                if (activeTab === "connections") {
+                    resetAndLoadConnectionsData();
+                }
+                toast.success(response.data.message);
+            }
+
             setNewConnectionName("");
+            setEditingConnection(null);
             setConnectionDialogOpen(false);
-            toast.success(response.data.message);
         } catch (error) {
-            console.error('Error creating connection:', error);
-            toast.error('Failed to create connection');
+            console.error('Error saving connection:', error);
+            toast.error('Failed to save connection');
         }
     };
 
@@ -391,20 +856,41 @@ export default function DashboardPage() {
         }
 
         try {
-            const response = await axios.post('/api/source', {
-                name: newSourceName,
-                type: newSourceType,
-                amount: newSourceAmount
-            });
-            setSources([response.data.source, ...sources]);
+            if (editingSource) {
+                const response = await axios.patch('/api/source', {
+                    id: editingSource.id,
+                    name: newSourceName,
+                    type: newSourceType,
+                    amount: newSourceAmount
+                });
+                setSources(sources.map(src =>
+                    src.id === editingSource.id ? response.data.source : src
+                ));
+                setSourcesData(sourcesData.map(src =>
+                    src.id === editingSource.id ? response.data.source : src
+                ));
+                toast.success(response.data.message);
+            } else {
+                const response = await axios.post('/api/source', {
+                    name: newSourceName,
+                    type: newSourceType,
+                    amount: newSourceAmount
+                });
+                setSources([response.data.source, ...sources]);
+                if (activeTab === "sources") {
+                    resetAndLoadSourcesData();
+                }
+                toast.success(response.data.message);
+            }
+
             setNewSourceName("");
             setNewSourceType("BANK");
             setNewSourceAmount(0);
+            setEditingSource(null);
             setSourceDialogOpen(false);
-            toast.success(response.data.message);
         } catch (error) {
-            console.error('Error creating source:', error);
-            toast.error('Failed to create source');
+            console.error('Error saving source:', error);
+            toast.error('Failed to save source');
         }
     };
 
@@ -864,6 +1350,413 @@ export default function DashboardPage() {
                             </div>
                         )
                     }
+
+                    {
+                        activeTab === "categories" && (
+                            <div className="flex flex-col h-full">
+                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                    <div className="flex gap-2 items-center">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Search categories by title..."
+                                                value={categorySearchQuery}
+                                                onChange={(e) => setCategorySearchQuery(e.target.value)}
+                                                className="pl-10"
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleRefreshCategories}
+                                            disabled={isRefreshingCategories || loadingCategories}
+                                        >
+                                            <RefreshCw className={`h-4 w-4 ${isRefreshingCategories ? 'animate-spin' : ''}`} />
+                                        </Button>
+                                        {categorySearchQuery && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setCategorySearchQuery("")}
+                                            >
+                                                <X className="h-4 w-4 mr-2" />
+                                                Clear
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    {loadingCategories && categoriesData.length === 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {[...Array(6)].map((_, i) => (
+                                                <Card key={i}>
+                                                    <CardContent className="p-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <Skeleton className="h-12 w-12 rounded-lg" />
+                                                            <div className="space-y-2 flex-1">
+                                                                <Skeleton className="h-4 w-[120px]" />
+                                                                <Skeleton className="h-3 w-[80px]" />
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    ) : categoriesData.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-center">
+                                            <div className="text-6xl mb-4">📁</div>
+                                            <h3 className="text-lg font-semibold mb-2">No categories found</h3>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                {categorySearchQuery
+                                                    ? "Try a different search term"
+                                                    : "Create your first category to organize transactions"}
+                                            </p>
+                                            <Button onClick={() => setCategoryDialogOpen(true)}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Category
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {categoriesData.map((category) => (
+                                                    <Card key={category.id} className="hover:shadow-md transition-shadow">
+                                                        <CardContent className="p-4">
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                    <div className="text-4xl bg-muted/50 p-2 rounded-lg">
+                                                                        {category.emoji}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <h3 className="font-semibold text-base truncate">
+                                                                            {category.title}
+                                                                        </h3>
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            {format(new Date(category.createdAt), 'MMM dd, yyyy')}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEditCategory(category)}
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+
+                                            {hasMoreCategories && (
+                                                <div ref={categoriesObserverTarget} className="py-4">
+                                                    {loadingCategories && (
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                            {[...Array(3)].map((_, i) => (
+                                                                <Card key={i}>
+                                                                    <CardContent className="p-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <Skeleton className="h-12 w-12 rounded-lg" />
+                                                                            <div className="space-y-2 flex-1">
+                                                                                <Skeleton className="h-4 w-[120px]" />
+                                                                                <Skeleton className="h-3 w-[80px]" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {!hasMoreCategories && categoriesData.length > 0 && (
+                                                <div className="text-center py-6 text-sm text-muted-foreground">
+                                                    You've reached the end of your categories
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    {
+                        activeTab === "connections" && (
+                            <div className="flex flex-col h-full">
+                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                    <div className="flex gap-2 items-center">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Search connections by name..."
+                                                value={connectionSearchQuery}
+                                                onChange={(e) => setConnectionSearchQuery(e.target.value)}
+                                                className="pl-10"
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleRefreshConnections}
+                                            disabled={isRefreshingConnections || loadingConnections}
+                                        >
+                                            <RefreshCw className={`h-4 w-4 ${isRefreshingConnections ? 'animate-spin' : ''}`} />
+                                        </Button>
+                                        {connectionSearchQuery && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setConnectionSearchQuery("")}
+                                            >
+                                                <X className="h-4 w-4 mr-2" />
+                                                Clear
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    {loadingConnections && connectionsData.length === 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {[...Array(6)].map((_, i) => (
+                                                <Card key={i}>
+                                                    <CardContent className="p-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <Skeleton className="h-12 w-12 rounded-full" />
+                                                            <div className="space-y-2 flex-1">
+                                                                <Skeleton className="h-4 w-[150px]" />
+                                                                <Skeleton className="h-3 w-[100px]" />
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    ) : connectionsData.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-center">
+                                            <div className="text-6xl mb-4">👥</div>
+                                            <h3 className="text-lg font-semibold mb-2">No connections found</h3>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                {connectionSearchQuery
+                                                    ? "Try a different search term"
+                                                    : "Add people you split expenses with"}
+                                            </p>
+                                            <Button onClick={() => setConnectionDialogOpen(true)}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Connection
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {connectionsData.map((connection) => (
+                                                    <Card key={connection.id} className="hover:shadow-md transition-shadow">
+                                                        <CardContent className="p-4">
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                                                                        {connection.name.charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <h3 className="font-semibold text-base truncate">
+                                                                            {connection.name}
+                                                                        </h3>
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            Added {format(new Date(connection.createdAt), 'MMM dd, yyyy')}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEditConnection(connection)}
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+
+                                            {hasMoreConnections && (
+                                                <div ref={connectionsObserverTarget} className="py-4">
+                                                    {loadingConnections && (
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                            {[...Array(3)].map((_, i) => (
+                                                                <Card key={i}>
+                                                                    <CardContent className="p-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <Skeleton className="h-12 w-12 rounded-full" />
+                                                                            <div className="space-y-2 flex-1">
+                                                                                <Skeleton className="h-4 w-[150px]" />
+                                                                                <Skeleton className="h-3 w-[100px]" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {!hasMoreConnections && connectionsData.length > 0 && (
+                                                <div className="text-center py-6 text-sm text-muted-foreground">
+                                                    You've reached the end of your connections
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    {
+                        activeTab === "sources" && (
+                            <div className="flex flex-col h-full">
+                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                    <div className="flex gap-2 items-center">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Search sources by name..."
+                                                value={sourceSearchQuery}
+                                                onChange={(e) => setSourceSearchQuery(e.target.value)}
+                                                className="pl-10"
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleRefreshSources}
+                                            disabled={isRefreshingSources || loadingSources}
+                                        >
+                                            <RefreshCw className={`h-4 w-4 ${isRefreshingSources ? 'animate-spin' : ''}`} />
+                                        </Button>
+                                        {sourceSearchQuery && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setSourceSearchQuery("")}
+                                            >
+                                                <X className="h-4 w-4 mr-2" />
+                                                Clear
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    {loadingSources && sourcesData.length === 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {[...Array(6)].map((_, i) => (
+                                                <Card key={i}>
+                                                    <CardContent className="p-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <Skeleton className="h-14 w-14 rounded-lg" />
+                                                            <div className="space-y-2 flex-1">
+                                                                <Skeleton className="h-4 w-[150px]" />
+                                                                <Skeleton className="h-3 w-[100px]" />
+                                                                <Skeleton className="h-5 w-[120px]" />
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    ) : sourcesData.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-center">
+                                            <div className="text-6xl mb-4">💰</div>
+                                            <h3 className="text-lg font-semibold mb-2">No sources found</h3>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                {sourceSearchQuery
+                                                    ? "Try a different search term"
+                                                    : "Add payment sources like bank accounts, cash, or credit cards"}
+                                            </p>
+                                            <Button onClick={() => setSourceDialogOpen(true)}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Source
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {sourcesData.map((source) => (
+                                                    <Card key={source.id} className="hover:shadow-md transition-shadow">
+                                                        <CardContent className="p-4">
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                    <div className="text-4xl bg-muted/50 p-2 rounded-lg">
+                                                                        {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <h3 className="font-semibold text-base truncate">
+                                                                            {source.name}
+                                                                        </h3>
+                                                                        <p className="text-xs text-muted-foreground mb-1">
+                                                                            {source.type}
+                                                                        </p>
+                                                                        <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                                                                            ₹{source.amount.toFixed(2)}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEditSource(source)}
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+
+                                            {hasMoreSources && (
+                                                <div ref={sourcesObserverTarget} className="py-4">
+                                                    {loadingSources && (
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                            {[...Array(3)].map((_, i) => (
+                                                                <Card key={i}>
+                                                                    <CardContent className="p-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <Skeleton className="h-14 w-14 rounded-lg" />
+                                                                            <div className="space-y-2 flex-1">
+                                                                                <Skeleton className="h-4 w-[150px]" />
+                                                                                <Skeleton className="h-3 w-[100px]" />
+                                                                                <Skeleton className="h-5 w-[120px]" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {!hasMoreSources && sourcesData.length > 0 && (
+                                                <div className="text-center py-6 text-sm text-muted-foreground">
+                                                    You've reached the end of your sources
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    }
                 </div>
 
             </div>
@@ -1155,12 +2048,15 @@ export default function DashboardPage() {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+            <Dialog open={categoryDialogOpen} onOpenChange={(open) => {
+                if (!open) closeEditCategory();
+                else setCategoryDialogOpen(open);
+            }}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Create Category</DialogTitle>
+                        <DialogTitle>{editingCategory ? 'Edit Category' : 'Create Category'}</DialogTitle>
                         <DialogDescription>
-                            Add a new category to organize your transactions better.
+                            {editingCategory ? 'Update your category details.' : 'Add a new category to organize your transactions better.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex flex-col gap-4">
@@ -1197,18 +2093,21 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button onClick={() => setCategoryDialogOpen(false)} variant="outline">Cancel</Button>
-                        <Button onClick={createCategory}>Create Category</Button>
+                        <Button onClick={closeEditCategory} variant="outline">Cancel</Button>
+                        <Button onClick={createCategory}>{editingCategory ? 'Update Category' : 'Create Category'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={connectionDialogOpen} onOpenChange={setConnectionDialogOpen}>
+            <Dialog open={connectionDialogOpen} onOpenChange={(open) => {
+                if (!open) closeEditConnection();
+                else setConnectionDialogOpen(open);
+            }}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Add Connection</DialogTitle>
+                        <DialogTitle>{editingConnection ? 'Edit Connection' : 'Add Connection'}</DialogTitle>
                         <DialogDescription>
-                            Add a person you frequently split expenses with.
+                            {editingConnection ? 'Update connection details.' : 'Add a person you frequently split expenses with.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex flex-col gap-4">
@@ -1224,18 +2123,21 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button onClick={() => setConnectionDialogOpen(false)} variant="outline">Cancel</Button>
-                        <Button onClick={createConnection}>Add Connection</Button>
+                        <Button onClick={closeEditConnection} variant="outline">Cancel</Button>
+                        <Button onClick={createConnection}>{editingConnection ? 'Update Connection' : 'Add Connection'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen}>
+            <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
+                if (!open) closeEditSource();
+                else setSourceDialogOpen(open);
+            }}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Add Source</DialogTitle>
+                        <DialogTitle>{editingSource ? 'Edit Source' : 'Add Source'}</DialogTitle>
                         <DialogDescription>
-                            Add a payment source like bank account, cash, or credit card.
+                            {editingSource ? 'Update source details.' : 'Add a payment source like bank account, cash, or credit card.'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex flex-col gap-4">
@@ -1287,8 +2189,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button onClick={() => setSourceDialogOpen(false)} variant="outline">Cancel</Button>
-                        <Button onClick={createSource}>Add Source</Button>
+                        <Button onClick={closeEditSource} variant="outline">Cancel</Button>
+                        <Button onClick={createSource}>{editingSource ? 'Update Source' : 'Add Source'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

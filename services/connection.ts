@@ -1,11 +1,45 @@
 import { prisma } from "@/lib/prisma";
 
-export async function getConnectionsByUserId(userId: string) {
+type GetConnectionsFilters = {
+    search?: string;
+    limit?: number;
+    cursor?: string;
+}
+
+export async function getConnectionsByUserId(userId: string, filters?: GetConnectionsFilters) {
     try {
-        return await prisma.connection.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' }
+        const {
+            search,
+            limit = 20,
+            cursor
+        } = filters || {};
+
+        const where: any = { userId };
+
+        if (search) {
+            where.name = { contains: search, mode: 'insensitive' };
+        }
+
+        const connections = await prisma.connection.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: limit + 1,
+            ...(cursor && {
+                skip: 1,
+                cursor: { id: cursor }
+            })
         });
+
+        let nextCursor: string | undefined = undefined;
+        if (connections.length > limit) {
+            const nextItem = connections.pop();
+            nextCursor = nextItem?.id;
+        }
+
+        return {
+            connections,
+            nextCursor
+        };
     } catch (error) {
         console.error('Error in getConnectionsByUserId:', error);
         throw new Error('Failed to get connections');
