@@ -25,7 +25,7 @@ import {
 import { Connection, TransactionType, SplitMethod, Category } from "@/types/transaction";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import axios from "axios";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -49,6 +49,7 @@ export default function DashboardPage() {
     const [transactionCategory, setTransactionCategory] = useState<string>("");
     const [transactionSplitted, setTransactionSplitted] = useState<boolean>(false);
     const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
+    const [savingTransaction, setSavingTransaction] = useState<boolean>(false);
 
     useEffect(() => {
         loadCategories();
@@ -177,6 +178,7 @@ export default function DashboardPage() {
                 toast.error('Please fill required fields');
                 return;
             }
+            setSavingTransaction(true);
 
             const selectedForSplit = getSelectedConnections();
 
@@ -210,6 +212,8 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Error adding transaction\n', error)
             toast.error('Error adding transaction')
+        } finally {
+            setSavingTransaction(false);
         }
     }
 
@@ -478,8 +482,8 @@ export default function DashboardPage() {
                     </div>
                     <DialogFooter className="gap-2">
                         <Button onClick={closeTransactionDialog} variant="outline">Cancel</Button>
-                        <Button onClick={addTransaction} className="min-w-[100px]">
-                            Add Transaction
+                        <Button onClick={addTransaction} className="w-[135px]" disabled={savingTransaction}>
+                            {savingTransaction ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving</> : "Add Transaction"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
