@@ -12,7 +12,7 @@ export default function SignInPage() {
 
     useEffect(() => {
         if (session) {
-            router.push("/dashboard");
+            router.replace("/dashboard");
         }
     }, [session, router]);
 
