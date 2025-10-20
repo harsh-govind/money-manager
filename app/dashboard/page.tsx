@@ -15,6 +15,7 @@ import { useState } from "react";
 import { DateTimePicker } from "@/components/ui/custom/DateTimePicker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea"
+import { toast } from "sonner"
 import {
     Select,
     SelectContent,
@@ -22,10 +23,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { TransactionType } from "@/types/transaction";
+import { Connection, TransactionType, SplitMethod } from "@/types/transaction";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Plus } from "lucide-react";
+import axios from "axios";
 export default function DashboardPage() {
     const [transactionDialogOpen, setTransactionDialogOpen] = useState<boolean>(false);
 
@@ -36,8 +38,8 @@ export default function DashboardPage() {
     const [transactionTitle, setTransactionTitle] = useState<string>("");
     const [transactionCategory, setTransactionCategory] = useState<string>("");
     const [transactionSplitted, setTransactionSplitted] = useState<boolean>(false);
-    const [splitMethod, setSplitMethod] = useState<"equal" | "percentage" | "amount">("equal");
-    const [connections, setConnections] = useState<Array<{ id: string, name: string, amount?: number, percentage?: number }>>([
+    const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
+    const [connections, setConnections] = useState<Array<Connection>>([
         { id: "1", name: "You" }
     ]);
 
@@ -87,8 +89,26 @@ export default function DashboardPage() {
         return connections.reduce((total, conn) => total + (conn.amount || 0), 0);
     };
 
-    const addTransaction = () => {
-        console.log("Adding transaction");
+    const addTransaction = async () => {
+        try {
+
+            const response = await axios.post('/api/transaction', {
+                transactionAmount,
+                transactionDate,
+                transactionDescription,
+                transactionType,
+                transactionCategory,
+                transactionTitle,
+                connections,
+            })
+
+            console.log(response)
+
+
+        } catch (error) {
+            console.error('Error adding transaction\n', error)
+            toast.error('Error adding transaction')
+        }
     }
 
     return (
@@ -205,7 +225,7 @@ export default function DashboardPage() {
                                         </Button>
                                     </div>
 
-                                    <Tabs value={splitMethod} onValueChange={(value) => setSplitMethod(value as "equal" | "percentage" | "amount")}>
+                                    <Tabs value={splitMethod} onValueChange={(value) => setSplitMethod(value as SplitMethod)}>
                                         <TabsList className="grid w-full grid-cols-3">
                                             <TabsTrigger value="equal">Equal</TabsTrigger>
                                             <TabsTrigger value="percentage">Percentage</TabsTrigger>
