@@ -31,8 +31,9 @@ import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns";
+import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 export default function DashboardPage() {
     const [transactionDialogOpen, setTransactionDialogOpen] = useState<boolean>(false);
     const [categoryDialogOpen, setCategoryDialogOpen] = useState<boolean>(false);
@@ -65,8 +66,12 @@ export default function DashboardPage() {
 
     const [savingState, setSavingState] = useState<string | null>(null);
 
-    const [activeTab, setActiveTab] = useState<string>("transactions");
+    const [activeTab, setActiveTab] = useState<string>("analytics");
     const tabs = [
+        {
+            label: "Analytics",
+            value: "analytics"
+        },
         {
             label: "Transactions",
             value: "transactions"
@@ -130,6 +135,10 @@ export default function DashboardPage() {
     const [debouncedSourceSearch, setDebouncedSourceSearch] = useState<string>("");
     const [hasLoadedSources, setHasLoadedSources] = useState<boolean>(false);
     const [isRefreshingSources, setIsRefreshingSources] = useState<boolean>(false);
+
+    const [analyticsTimeRange, setAnalyticsTimeRange] = useState<string>("1month");
+    const [analyticsData, setAnalyticsData] = useState<any>(null);
+    const [loadingAnalytics, setLoadingAnalytics] = useState<boolean>(false);
 
     const observerTarget = useRef<HTMLDivElement>(null);
     const categoriesObserverTarget = useRef<HTMLDivElement>(null);
@@ -221,6 +230,12 @@ export default function DashboardPage() {
             resetAndLoadSourcesData();
         }
     }, [debouncedSourceSearch]);
+
+    useEffect(() => {
+        if (activeTab === "analytics") {
+            loadAnalyticsData();
+        }
+    }, [activeTab, analyticsTimeRange]);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -760,6 +775,19 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Error deleting source:', error);
             toast.error('Failed to delete source');
+        }
+    };
+
+    const loadAnalyticsData = async () => {
+        setLoadingAnalytics(true);
+        try {
+            const response = await axios.get(`/api/analytics?timeRange=${analyticsTimeRange}`);
+            setAnalyticsData(response.data);
+        } catch (error) {
+            console.error('Error loading analytics:', error);
+            toast.error('Failed to load analytics data');
+        } finally {
+            setLoadingAnalytics(false);
         }
     };
 
@@ -1363,6 +1391,277 @@ export default function DashboardPage() {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        )
+                    }
+
+                    {
+                        activeTab === "analytics" && (
+                            <div className="flex flex-col h-full overflow-y-auto">
+                                <div className="p-4 border-b space-y-3 bg-muted/20 sticky top-0 z-10">
+                                    <div className="flex justify-between items-center">
+                                        <h2 className="text-xl font-bold">Financial Analytics</h2>
+                                        <Select value={analyticsTimeRange} onValueChange={setAnalyticsTimeRange}>
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue placeholder="Select range" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="1week">Last Week</SelectItem>
+                                                <SelectItem value="1month">This Month</SelectItem>
+                                                <SelectItem value="3months">Last 3 Months</SelectItem>
+                                                <SelectItem value="6months">Last 6 Months</SelectItem>
+                                                <SelectItem value="1year">Last Year</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {loadingAnalytics ? (
+                                    <div className="p-4 space-y-4">
+                                        {[...Array(6)].map((_, i) => (
+                                            <Card key={i}>
+                                                <CardHeader>
+                                                    <Skeleton className="h-6 w-[200px]" />
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <Skeleton className="h-[300px] w-full" />
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                ) : !analyticsData || (analyticsData.totals.incomeCount + analyticsData.totals.expenseCount + analyticsData.totals.transferCount) === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                                        <div className="text-6xl mb-4">📊</div>
+                                        <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
+                                        <p className="text-sm text-muted-foreground mb-4">
+                                            Add some transactions to see your analytics
+                                        </p>
+                                        <Button onClick={() => setTransactionDialogOpen(true)}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Add Transaction
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="p-4 space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            <Card>
+                                                <CardHeader className="pb-2">
+                                                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Income</CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="flex items-center gap-2">
+                                                        <TrendingUp className="h-5 w-5 text-green-600" />
+                                                        <span className="text-2xl font-bold text-green-600">₹{analyticsData.totals.income.toFixed(2)}</span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {analyticsData.totals.incomeCount} transactions
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+
+                                            <Card>
+                                                <CardHeader className="pb-2">
+                                                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="flex items-center gap-2">
+                                                        <TrendingDown className="h-5 w-5 text-red-600" />
+                                                        <span className="text-2xl font-bold text-red-600">₹{analyticsData.totals.expenses.toFixed(2)}</span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {analyticsData.totals.expenseCount} transactions
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+
+                                            <Card>
+                                                <CardHeader className="pb-2">
+                                                    <CardTitle className="text-sm font-medium text-muted-foreground">Net Balance</CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="flex items-center gap-2">
+                                                        <ArrowUpDown className="h-5 w-5 text-blue-600" />
+                                                        <span className={`text-2xl font-bold ${analyticsData.totals.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                            ₹{analyticsData.totals.balance.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">Income - Expenses</p>
+                                                </CardContent>
+                                            </Card>
+
+                                            <Card>
+                                                <CardHeader className="pb-2">
+                                                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Transfers</CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="flex items-center gap-2">
+                                                        <ArrowRightLeft className="h-5 w-5 text-blue-600" />
+                                                        <span className="text-2xl font-bold text-blue-600">₹{analyticsData.totals.transfers.toFixed(2)}</span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {analyticsData.totals.transferCount} transactions
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
+
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>Income vs Expenses Over Time</CardTitle>
+                                                <CardDescription>Track your financial flow</CardDescription>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <ResponsiveContainer width="100%" height={300}>
+                                                    <AreaChart data={analyticsData.timeSeriesData}>
+                                                        <defs>
+                                                            <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                                            </linearGradient>
+                                                            <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                                                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <CartesianGrid strokeDasharray="3 3" />
+                                                        <XAxis dataKey="date" />
+                                                        <YAxis />
+                                                        <Tooltip />
+                                                        <Legend />
+                                                        <Area type="monotone" dataKey="income" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" />
+                                                        <Area type="monotone" dataKey="expenses" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpenses)" />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
+                                            </CardContent>
+                                        </Card>
+
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle>Expenses by Category</CardTitle>
+                                                    <CardDescription>See where your money goes</CardDescription>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    {(() => {
+                                                        const categoryData = analyticsData.categoryBreakdown;
+                                                        const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c'];
+                                                        const pieData = categoryData.map((cat: any, index: number) => ({
+                                                            name: `${cat.emoji} ${cat.name}`,
+                                                            value: cat.amount,
+                                                            color: COLORS[index % COLORS.length]
+                                                        }));
+
+                                                        return categoryData.length > 0 ? (
+                                                            <div className="space-y-4">
+                                                                <ResponsiveContainer width="100%" height={250}>
+                                                                    <PieChart>
+                                                                        <Pie
+                                                                            data={pieData}
+                                                                            cx="50%"
+                                                                            cy="50%"
+                                                                            labelLine={false}
+                                                                            label={(entry) => `${entry.name.split(' ').slice(-1)}`}
+                                                                            outerRadius={80}
+                                                                            fill="#8884d8"
+                                                                            dataKey="value"
+                                                                        >
+                                                                            {pieData.map((entry: any, index: number) => (
+                                                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                                                            ))}
+                                                                        </Pie>
+                                                                        <Tooltip />
+                                                                    </PieChart>
+                                                                </ResponsiveContainer>
+                                                                <div className="space-y-2">
+                                                                    {categoryData.slice(0, 5).map((cat: any, index: number) => (
+                                                                        <div key={index} className="flex items-center justify-between text-sm">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                                                                                <span>{cat.emoji} {cat.name}</span>
+                                                                            </div>
+                                                                            <span className="font-semibold">₹{cat.amount.toFixed(2)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-muted-foreground text-center py-8">No expense data available</p>
+                                                        );
+                                                    })()}
+                                                </CardContent>
+                                            </Card>
+
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle>Source Balance Impact</CardTitle>
+                                                    <CardDescription>Net change per source</CardDescription>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    {(() => {
+                                                        const sourceData = analyticsData.sourceBreakdown;
+                                                        return sourceData.length > 0 ? (
+                                                            <div className="space-y-3">
+                                                                {sourceData.slice(0, 8).map((source: any, index: number) => (
+                                                                    <div key={index} className="space-y-1">
+                                                                        <div className="flex items-center justify-between text-sm">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span>{source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'}</span>
+                                                                                <span className="font-medium">{source.name}</span>
+                                                                            </div>
+                                                                            <span className={`font-semibold ${source.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                                {source.amount >= 0 ? '+' : ''}₹{source.amount.toFixed(2)}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="text-xs text-muted-foreground">{source.count} transactions</div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-muted-foreground text-center py-8">No source data available</p>
+                                                        );
+                                                    })()}
+                                                </CardContent>
+                                            </Card>
+                                        </div>
+
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>Top 10 Transactions</CardTitle>
+                                                <CardDescription>Highest value transactions in this period</CardDescription>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="space-y-3">
+                                                    {analyticsData.topTransactions.map((transaction: any, index: number) => (
+                                                        <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg border">
+                                                            <div className="flex items-center gap-3 flex-1">
+                                                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-sm font-bold">
+                                                                    {index + 1}
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-semibold">{transaction.title}</span>
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            {transaction.category.emoji} {transaction.category.title}
+                                                                        </Badge>
+                                                                    </div>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {format(new Date(transaction.date), 'MMM dd, yyyy')}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600' :
+                                                                transaction.type === 'EXPENSE' ? 'text-red-600' : 'text-blue-600'
+                                                                }`}>
+                                                                {transaction.type === 'INCOME' ? '+' : transaction.type === 'EXPENSE' ? '-' : ''}
+                                                                ₹{transaction.amount.toFixed(2)}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                )}
                             </div>
                         )
                     }
