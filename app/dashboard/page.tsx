@@ -62,7 +62,8 @@ export default function DashboardPage() {
     const [transactionSource, setTransactionSource] = useState<string>("");
     const [transactionSplitted, setTransactionSplitted] = useState<boolean>(false);
     const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
-    const [savingTransaction, setSavingTransaction] = useState<boolean>(false);
+
+    const [savingState, setSavingState] = useState<string | null>(null);
 
     const [activeTab, setActiveTab] = useState<string>("transactions");
     const tabs = [
@@ -768,6 +769,9 @@ export default function DashboardPage() {
             return;
         }
 
+        const actionType = editingCategory ? 'update-category' : 'add-category';
+        setSavingState(actionType);
+
         try {
             if (editingCategory) {
                 const response = await axios.patch('/api/category', {
@@ -801,6 +805,8 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Error saving category:', error);
             toast.error('Failed to save category');
+        } finally {
+            setSavingState(null);
         }
     };
 
@@ -809,6 +815,9 @@ export default function DashboardPage() {
             toast.error('Please enter a name');
             return;
         }
+
+        const actionType = editingConnection ? 'update-connection' : 'add-connection';
+        setSavingState(actionType);
 
         try {
             if (editingConnection) {
@@ -846,6 +855,8 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Error saving connection:', error);
             toast.error('Failed to save connection');
+        } finally {
+            setSavingState(null);
         }
     };
 
@@ -854,6 +865,9 @@ export default function DashboardPage() {
             toast.error('Please enter a name');
             return;
         }
+
+        const actionType = editingSource ? 'update-source' : 'add-source';
+        setSavingState(actionType);
 
         try {
             if (editingSource) {
@@ -891,6 +905,8 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Error saving source:', error);
             toast.error('Failed to save source');
+        } finally {
+            setSavingState(null);
         }
     };
 
@@ -942,7 +958,7 @@ export default function DashboardPage() {
                 toast.error('Please fill required fields');
                 return;
             }
-            setSavingTransaction(true);
+            setSavingState('add-transaction');
 
             const selectedForSplit = getSelectedConnections();
 
@@ -983,7 +999,7 @@ export default function DashboardPage() {
             console.error('Error adding transaction\n', error)
             toast.error('Error adding transaction')
         } finally {
-            setSavingTransaction(false);
+            setSavingState(null);
         }
     }
 
@@ -1001,16 +1017,16 @@ export default function DashboardPage() {
                         ))}
                     </div>
                     <div className="flex gap-2">
-                        <Button onClick={() => setTransactionDialogOpen(true)} size="sm">
+                        <Button onClick={() => setTransactionDialogOpen(true)} size="sm" disabled={savingState !== null}>
                             Add Transaction
                         </Button>
-                        <Button onClick={() => setCategoryDialogOpen(true)} variant="outline" size="sm">
+                        <Button onClick={() => setCategoryDialogOpen(true)} variant="outline" size="sm" disabled={savingState !== null}>
                             Add Category
                         </Button>
-                        <Button onClick={() => setConnectionDialogOpen(true)} variant="outline" size="sm">
+                        <Button onClick={() => setConnectionDialogOpen(true)} variant="outline" size="sm" disabled={savingState !== null}>
                             Add Connection
                         </Button>
-                        <Button onClick={() => setSourceDialogOpen(true)} variant="outline" size="sm">
+                        <Button onClick={() => setSourceDialogOpen(true)} variant="outline" size="sm" disabled={savingState !== null}>
                             Add Source
                         </Button>
                     </div>
@@ -2040,9 +2056,9 @@ export default function DashboardPage() {
 
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button onClick={closeTransactionDialog} variant="outline">Cancel</Button>
-                        <Button onClick={addTransaction} className="w-[135px]" disabled={savingTransaction}>
-                            {savingTransaction ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving</> : "Add Transaction"}
+                        <Button onClick={closeTransactionDialog} variant="outline" disabled={savingState !== null}>Cancel</Button>
+                        <Button onClick={addTransaction} className="w-[135px]" disabled={savingState !== null}>
+                            {savingState === 'add-transaction' ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving</> : "Add Transaction"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -2093,8 +2109,14 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button onClick={closeEditCategory} variant="outline">Cancel</Button>
-                        <Button onClick={createCategory}>{editingCategory ? 'Update Category' : 'Create Category'}</Button>
+                        <Button onClick={closeEditCategory} variant="outline" disabled={savingState !== null}>Cancel</Button>
+                        <Button onClick={createCategory} disabled={savingState !== null} className="min-w-[150px]">
+                            {savingState === 'add-category' || savingState === 'update-category' ? (
+                                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving</>
+                            ) : (
+                                editingCategory ? 'Update Category' : 'Create Category'
+                            )}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -2123,8 +2145,14 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button onClick={closeEditConnection} variant="outline">Cancel</Button>
-                        <Button onClick={createConnection}>{editingConnection ? 'Update Connection' : 'Add Connection'}</Button>
+                        <Button onClick={closeEditConnection} variant="outline" disabled={savingState !== null}>Cancel</Button>
+                        <Button onClick={createConnection} disabled={savingState !== null} className="min-w-[160px]">
+                            {savingState === 'add-connection' || savingState === 'update-connection' ? (
+                                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving</>
+                            ) : (
+                                editingConnection ? 'Update Connection' : 'Add Connection'
+                            )}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -2189,8 +2217,14 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button onClick={closeEditSource} variant="outline">Cancel</Button>
-                        <Button onClick={createSource}>{editingSource ? 'Update Source' : 'Add Source'}</Button>
+                        <Button onClick={closeEditSource} variant="outline" disabled={savingState !== null}>Cancel</Button>
+                        <Button onClick={createSource} disabled={savingState !== null} className="min-w-[140px]">
+                            {savingState === 'add-source' || savingState === 'update-source' ? (
+                                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving</>
+                            ) : (
+                                editingSource ? 'Update Source' : 'Add Source'
+                            )}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
