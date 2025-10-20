@@ -680,7 +680,7 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <Label htmlFor="source-amount">Initial Amount</Label>
+                            <Label htmlFor="source-amount">{newSourceType === 'CREDIT' ? 'Current Credit Limit' : 'Current Balance'}</Label>
                             <Input
                                 id="source-amount"
                                 type="number"
