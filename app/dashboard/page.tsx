@@ -4,20 +4,21 @@ import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 export default function DashboardPage() {
     const { data: session } = useSession();
 
-    console.log(session);
-
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="min-h-screen">
             <div className="container mx-auto p-6">
                 <div className="flex justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold">Dashboard</h1>
-                    <Button onClick={() => signOut({ callbackUrl: "/signin" })} variant="outline">
-                        Sign Out
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <ThemeToggle />
+                        <Button onClick={() => signOut({ callbackUrl: "/signin" })} variant="outline">
+                            Sign Out
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -36,7 +37,7 @@ export default function DashboardPage() {
                                 )}
                                 <div>
                                     <p className="font-medium">{session?.user?.name}</p>
-                                    <p className="text-sm text-gray-500">{session?.user?.email}</p>
+                                    <p className="text-sm">{session?.user?.email}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -60,7 +61,7 @@ export default function DashboardPage() {
                             <CardDescription>Your activity overview</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-sm text-gray-500">No data available yet</p>
+                            <p className="text-sm">No data available yet</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -68,4 +69,3 @@ export default function DashboardPage() {
         </div>
     );
 }
-
