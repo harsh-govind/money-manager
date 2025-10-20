@@ -13,7 +13,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 
-export function DateTimePicker({ date, setDate }: { date: Date, setDate: (date: Date) => void }) {
+export function DateTimePicker({ date, setDate }: { date: Date | undefined, setDate: (date: Date | undefined) => void }) {
     const [open, setOpen] = React.useState(false)
 
     return (
@@ -39,7 +39,7 @@ export function DateTimePicker({ date, setDate }: { date: Date, setDate: (date: 
                             selected={date}
                             captionLayout="dropdown"
                             onSelect={(date) => {
-                                setDate(date || new Date())
+                                setDate(date)
                                 setOpen(false)
                             }}
                         />

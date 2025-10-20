@@ -13,11 +13,33 @@ export async function GET(req: NextRequest) {
             }, { status: 401 });
         }
 
-        const transactions = await getTransactionsByUserId(session.user.id);
+        const { searchParams } = new URL(req.url);
+        const search = searchParams.get('search') || undefined;
+        const categoryIds = searchParams.get('categoryIds')?.split(',').filter(Boolean) || undefined;
+        const connectionIds = searchParams.get('connectionIds')?.split(',').filter(Boolean) || undefined;
+        const sourceIds = searchParams.get('sourceIds')?.split(',').filter(Boolean) || undefined;
+        const types = searchParams.get('types')?.split(',').filter(Boolean) as ("INCOME" | "EXPENSE" | "TRANSFER")[] | undefined;
+        const dateFrom = searchParams.get('dateFrom') ? new Date(searchParams.get('dateFrom')!) : undefined;
+        const dateTo = searchParams.get('dateTo') ? new Date(searchParams.get('dateTo')!) : undefined;
+        const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
+        const cursor = searchParams.get('cursor') || undefined;
+
+        const result = await getTransactionsByUserId(session.user.id, {
+            search,
+            categoryIds,
+            connectionIds,
+            sourceIds,
+            types,
+            dateFrom,
+            dateTo,
+            limit,
+            cursor
+        });
 
         return NextResponse.json({
             message: "Transactions fetched successfully",
-            transactions
+            transactions: result.transactions,
+            nextCursor: result.nextCursor
         });
     } catch (error) {
         console.error('Error fetching transactions:', error);

@@ -10,7 +10,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { DateTimePicker } from "@/components/ui/custom/DateTimePicker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea"
@@ -22,13 +22,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Connection, TransactionType, SplitMethod, Category, Source, SourceType } from "@/types/transaction";
+import { Connection, TransactionType, SplitMethod, Category, Source, SourceType, Transaction } from "@/types/transaction";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Search, Filter, X, Calendar, ArrowUpDown, TrendingUp, TrendingDown, ArrowRightLeft, RefreshCw } from "lucide-react";
 import axios from "axios";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
+import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns";
 export default function DashboardPage() {
     const [transactionDialogOpen, setTransactionDialogOpen] = useState<boolean>(false);
     const [categoryDialogOpen, setCategoryDialogOpen] = useState<boolean>(false);
@@ -77,11 +81,73 @@ export default function DashboardPage() {
         },
     ]
 
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [loadingTransactions, setLoadingTransactions] = useState<boolean>(false);
+    const [hasMore, setHasMore] = useState<boolean>(true);
+    const [cursor, setCursor] = useState<string | null>(null);
+
+    const [searchQuery, setSearchQuery] = useState<string>("");
+    const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+    const [showFilters, setShowFilters] = useState<boolean>(false);
+
+    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+    const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
+    const [selectedSources, setSelectedSources] = useState<string[]>([]);
+    const [selectedTypes, setSelectedTypes] = useState<TransactionType[]>([]);
+    const [dateFilter, setDateFilter] = useState<string>("all");
+    const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>(undefined);
+    const [customDateTo, setCustomDateTo] = useState<Date | undefined>(undefined);
+    const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+    const [hasLoadedTransactions, setHasLoadedTransactions] = useState<boolean>(false);
+
+    const observerTarget = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         loadCategories();
         loadConnections();
         loadSources();
     }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    useEffect(() => {
+        if (activeTab === "transactions" && !hasLoadedTransactions) {
+            resetAndLoadTransactions();
+            setHasLoadedTransactions(true);
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab === "transactions" && hasLoadedTransactions) {
+            resetAndLoadTransactions();
+        }
+    }, [debouncedSearch, selectedCategories, selectedConnections, selectedSources, selectedTypes, dateFilter, customDateFrom, customDateTo]);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            entries => {
+                if (entries[0].isIntersecting && hasMore && !loadingTransactions && activeTab === "transactions") {
+                    loadMoreTransactions();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (observerTarget.current) {
+            observer.observe(observerTarget.current);
+        }
+
+        return () => {
+            if (observerTarget.current) {
+                observer.unobserve(observerTarget.current);
+            }
+        };
+    }, [hasMore, loadingTransactions, cursor, activeTab]);
 
     const loadCategories = async () => {
         try {
@@ -117,6 +183,157 @@ export default function DashboardPage() {
             console.error('Error loading sources:', error);
             toast.error('Failed to load sources');
         }
+    };
+
+    const buildQueryParams = (cursorOverride?: string | null) => {
+        const params = new URLSearchParams();
+
+        if (debouncedSearch) params.append('search', debouncedSearch);
+        if (selectedCategories.length > 0) params.append('categoryIds', selectedCategories.join(','));
+        if (selectedConnections.length > 0) params.append('connectionIds', selectedConnections.join(','));
+        if (selectedSources.length > 0) params.append('sourceIds', selectedSources.join(','));
+        if (selectedTypes.length > 0) params.append('types', selectedTypes.join(','));
+
+        const dateRange = getDateRange();
+        if (dateRange.from) params.append('dateFrom', dateRange.from.toISOString());
+        if (dateRange.to) params.append('dateTo', dateRange.to.toISOString());
+
+        params.append('limit', '20');
+        const cursorToUse = cursorOverride !== undefined ? cursorOverride : cursor;
+        if (cursorToUse) params.append('cursor', cursorToUse);
+
+        return params.toString();
+    };
+
+    const getDateRange = () => {
+        const now = new Date();
+
+        switch (dateFilter) {
+            case '1day':
+                return {
+                    from: startOfDay(subDays(now, 1)),
+                    to: endOfDay(now)
+                };
+            case '1week':
+                return {
+                    from: startOfDay(subDays(now, 7)),
+                    to: endOfDay(now)
+                };
+            case '1month':
+                return {
+                    from: startOfDay(subMonths(now, 1)),
+                    to: endOfDay(now)
+                };
+            case 'custom':
+                return {
+                    from: customDateFrom ? startOfDay(customDateFrom) : undefined,
+                    to: customDateTo ? endOfDay(customDateTo) : undefined
+                };
+            default:
+                return { from: undefined, to: undefined };
+        }
+    };
+
+    const resetAndLoadTransactions = async () => {
+        setTransactions([]);
+        setCursor(null);
+        setHasMore(true);
+        await loadTransactions(null);
+    };
+
+    const loadTransactions = async (currentCursor: string | null) => {
+        if (loadingTransactions) return;
+
+        try {
+            setLoadingTransactions(true);
+            const queryParams = buildQueryParams(currentCursor);
+            const response = await axios.get(`/api/transaction?${queryParams}`);
+
+            const newTransactions = response.data.transactions;
+            const nextCursor = response.data.nextCursor;
+
+            if (currentCursor) {
+                setTransactions(prev => [...prev, ...newTransactions]);
+            } else {
+                setTransactions(newTransactions);
+            }
+
+            setCursor(nextCursor || null);
+            setHasMore(!!nextCursor);
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+            toast.error('Failed to load transactions');
+        } finally {
+            setLoadingTransactions(false);
+        }
+    };
+
+    const loadMoreTransactions = () => {
+        if (cursor && !loadingTransactions) {
+            loadTransactions(cursor);
+        }
+    };
+
+    const clearAllFilters = () => {
+        setSearchQuery("");
+        setSelectedCategories([]);
+        setSelectedConnections([]);
+        setSelectedSources([]);
+        setSelectedTypes([]);
+        setDateFilter("all");
+        setCustomDateFrom(undefined);
+        setCustomDateTo(undefined);
+    };
+
+    const getActiveFilterCount = () => {
+        let count = 0;
+        if (debouncedSearch) count++;
+        if (selectedCategories.length > 0) count++;
+        if (selectedConnections.length > 0) count++;
+        if (selectedSources.length > 0) count++;
+        if (selectedTypes.length > 0) count++;
+        if (dateFilter !== "all") count++;
+        return count;
+    };
+
+    const toggleCategory = (categoryId: string) => {
+        setSelectedCategories(prev =>
+            prev.includes(categoryId)
+                ? prev.filter(id => id !== categoryId)
+                : [...prev, categoryId]
+        );
+    };
+
+    const toggleConnection = (connectionId: string) => {
+        setSelectedConnections(prev =>
+            prev.includes(connectionId)
+                ? prev.filter(id => id !== connectionId)
+                : [...prev, connectionId]
+        );
+    };
+
+    const toggleSource = (sourceId: string) => {
+        setSelectedSources(prev =>
+            prev.includes(sourceId)
+                ? prev.filter(id => id !== sourceId)
+                : [...prev, sourceId]
+        );
+    };
+
+    const toggleType = (type: TransactionType) => {
+        setSelectedTypes(prev =>
+            prev.includes(type)
+                ? prev.filter(t => t !== type)
+                : [...prev, type]
+        );
+    };
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await resetAndLoadTransactions();
+        setTimeout(() => {
+            setIsRefreshing(false);
+        }, 500);
     };
 
     const createCategory = async () => {
@@ -272,6 +489,10 @@ export default function DashboardPage() {
                 percentage: 0
             })));
 
+            if (activeTab === "transactions") {
+                resetAndLoadTransactions();
+            }
+
         } catch (error) {
             console.error('Error adding transaction\n', error)
             toast.error('Error adding transaction')
@@ -310,11 +531,336 @@ export default function DashboardPage() {
                 </div>
 
 
-                <div className="border h-[calc(100vh-160px)] rounded-md p-2">
+                <div className="border h-[calc(100vh-160px)] rounded-md overflow-hidden flex flex-col">
                     {
                         activeTab === "transactions" && (
-                            <div>
-                                TRAS
+                            <div className="flex flex-col h-full">
+                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                    <div className="flex gap-2 items-center">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Search by title or description..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="pl-10"
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleRefresh}
+                                            disabled={isRefreshing || loadingTransactions}
+                                        >
+                                            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                        </Button>
+                                        <Button
+                                            variant={showFilters ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setShowFilters(!showFilters)}
+                                            className="relative"
+                                        >
+                                            <Filter className="h-4 w-4 mr-2" />
+                                            Filters
+                                            {getActiveFilterCount() > 0 && (
+                                                <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center" variant="secondary">
+                                                    {getActiveFilterCount()}
+                                                </Badge>
+                                            )}
+                                        </Button>
+                                        {getActiveFilterCount() > 0 && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={clearAllFilters}
+                                            >
+                                                <X className="h-4 w-4 mr-2" />
+                                                Clear
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    {showFilters && (
+                                        <div className="space-y-3 pt-2 border-t">
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium">Date Range</Label>
+                                                    <Select value={dateFilter} onValueChange={setDateFilter}>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="All time" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="all">All time</SelectItem>
+                                                            <SelectItem value="1day">Last 24 hours</SelectItem>
+                                                            <SelectItem value="1week">Last 7 days</SelectItem>
+                                                            <SelectItem value="1month">Last 30 days</SelectItem>
+                                                            <SelectItem value="custom">Custom range</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium">Transaction Type</Label>
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            variant={selectedTypes.includes("INCOME") ? "default" : "outline"}
+                                                            size="sm"
+                                                            onClick={() => toggleType("INCOME")}
+                                                            className="flex-1"
+                                                        >
+                                                            <TrendingUp className="h-4 w-4 mr-1" />
+                                                            Income
+                                                        </Button>
+                                                        <Button
+                                                            variant={selectedTypes.includes("EXPENSE") ? "default" : "outline"}
+                                                            size="sm"
+                                                            onClick={() => toggleType("EXPENSE")}
+                                                            className="flex-1"
+                                                        >
+                                                            <TrendingDown className="h-4 w-4 mr-1" />
+                                                            Expense
+                                                        </Button>
+                                                        <Button
+                                                            variant={selectedTypes.includes("TRANSFER") ? "default" : "outline"}
+                                                            size="sm"
+                                                            onClick={() => toggleType("TRANSFER")}
+                                                            className="flex-1"
+                                                        >
+                                                            <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                                            Transfer
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {dateFilter === "custom" && (
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="space-y-2">
+                                                        <Label className="text-sm font-medium">From Date</Label>
+                                                        <DateTimePicker date={customDateFrom} setDate={setCustomDateFrom} />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-sm font-medium">To Date</Label>
+                                                        <DateTimePicker date={customDateTo} setDate={setCustomDateTo} />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-3 gap-3">
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium">Categories</Label>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="outline" className="w-full justify-between">
+                                                                {selectedCategories.length === 0 ? "All" : `${selectedCategories.length} selected`}
+                                                                <ArrowUpDown className="h-4 w-4 ml-2" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-[200px] p-2" align="start">
+                                                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                                                {categories.map((category) => (
+                                                                    <div
+                                                                        key={category.id}
+                                                                        className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                        onClick={() => toggleCategory(category.id)}
+                                                                    >
+                                                                        <Checkbox checked={selectedCategories.includes(category.id)} />
+                                                                        <span className="text-sm">{category.emoji} {category.title}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium">Sources</Label>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="outline" className="w-full justify-between">
+                                                                {selectedSources.length === 0 ? "All" : `${selectedSources.length} selected`}
+                                                                <ArrowUpDown className="h-4 w-4 ml-2" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-[200px] p-2" align="start">
+                                                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                                                {sources.map((source) => (
+                                                                    <div
+                                                                        key={source.id}
+                                                                        className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                        onClick={() => toggleSource(source.id)}
+                                                                    >
+                                                                        <Checkbox checked={selectedSources.includes(source.id)} />
+                                                                        <span className="text-sm">
+                                                                            {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium">Connections</Label>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button variant="outline" className="w-full justify-between">
+                                                                {selectedConnections.length === 0 ? "All" : `${selectedConnections.length} selected`}
+                                                                <ArrowUpDown className="h-4 w-4 ml-2" />
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-[200px] p-2" align="start">
+                                                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                                                {availableConnections.map((connection) => (
+                                                                    <div
+                                                                        key={connection.id}
+                                                                        className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                        onClick={() => toggleConnection(connection.id)}
+                                                                    >
+                                                                        <Checkbox checked={selectedConnections.includes(connection.id)} />
+                                                                        <span className="text-sm">{connection.name}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    {loadingTransactions && transactions.length === 0 ? (
+                                        <div className="space-y-3">
+                                            {[...Array(6)].map((_, i) => (
+                                                <Card key={i}>
+                                                    <CardContent className="p-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3 flex-1">
+                                                                <Skeleton className="h-10 w-10 rounded-full" />
+                                                                <div className="space-y-2 flex-1">
+                                                                    <Skeleton className="h-4 w-[200px]" />
+                                                                    <Skeleton className="h-3 w-[150px]" />
+                                                                </div>
+                                                            </div>
+                                                            <Skeleton className="h-6 w-[100px]" />
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    ) : transactions.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-center">
+                                            <div className="text-6xl mb-4">📊</div>
+                                            <h3 className="text-lg font-semibold mb-2">No transactions found</h3>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                {getActiveFilterCount() > 0
+                                                    ? "Try adjusting your filters or search query"
+                                                    : "Start tracking your finances by adding your first transaction"}
+                                            </p>
+                                            <Button onClick={() => setTransactionDialogOpen(true)}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Transaction
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {transactions.map((transaction) => (
+                                                <Card key={transaction.id} className="hover:shadow-md transition-shadow">
+                                                    <CardContent className="p-4">
+                                                        <div className="flex items-start justify-between gap-4">
+                                                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                                <div className={`p-2 rounded-full ${transaction.type === 'INCOME' ? 'bg-green-100 dark:bg-green-900/20' :
+                                                                    transaction.type === 'EXPENSE' ? 'bg-red-100 dark:bg-red-900/20' :
+                                                                        'bg-blue-100 dark:bg-blue-900/20'
+                                                                    }`}>
+                                                                    {transaction.type === 'INCOME' ? (
+                                                                        <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                                                    ) : transaction.type === 'EXPENSE' ? (
+                                                                        <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+                                                                    ) : (
+                                                                        <ArrowRightLeft className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <h3 className="font-semibold text-base truncate">{transaction.title}</h3>
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            {transaction.category.emoji} {transaction.category.title}
+                                                                        </Badge>
+                                                                    </div>
+                                                                    {transaction.description && (
+                                                                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                                                                            {transaction.description}
+                                                                        </p>
+                                                                    )}
+                                                                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                                                        <div className="flex items-center gap-1">
+                                                                            <Calendar className="h-3 w-3" />
+                                                                            {format(new Date(transaction.date), 'MMM dd, yyyy HH:mm')}
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1">
+                                                                            {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                            {transaction.source.name}
+                                                                        </div>
+                                                                        {transaction.splits && transaction.splits.length > 0 && (
+                                                                            <Badge variant="secondary" className="text-xs">
+                                                                                Split with {transaction.splits.map(s => s.connection?.name).filter(Boolean).join(', ')}
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
+                                                                    transaction.type === 'EXPENSE' ? 'text-red-600 dark:text-red-400' :
+                                                                        'text-blue-600 dark:text-blue-400'
+                                                                    }`}>
+                                                                    {transaction.type === 'INCOME' ? '+' : transaction.type === 'EXPENSE' ? '-' : ''}
+                                                                    ₹{transaction.amount.toFixed(2)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+
+                                            {hasMore && (
+                                                <div ref={observerTarget} className="py-4">
+                                                    {loadingTransactions && (
+                                                        <div className="space-y-3">
+                                                            {[...Array(3)].map((_, i) => (
+                                                                <Card key={i}>
+                                                                    <CardContent className="p-4">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="flex items-center gap-3 flex-1">
+                                                                                <Skeleton className="h-10 w-10 rounded-full" />
+                                                                                <div className="space-y-2 flex-1">
+                                                                                    <Skeleton className="h-4 w-[200px]" />
+                                                                                    <Skeleton className="h-3 w-[150px]" />
+                                                                                </div>
+                                                                            </div>
+                                                                            <Skeleton className="h-6 w-[100px]" />
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {!hasMore && transactions.length > 0 && (
+                                                <div className="text-center py-6 text-sm text-muted-foreground">
+                                                    You've reached the end of your transactions
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )
                     }
@@ -356,7 +902,7 @@ export default function DashboardPage() {
                                     id="transaction-amount" className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                             </div>
 
-                            <DateTimePicker date={transactionDate} setDate={setTransactionDate} />
+                            <DateTimePicker date={transactionDate} setDate={(date) => setTransactionDate(date || new Date())} />
                         </div>
 
                         <div className="flex gap-4 w-full">

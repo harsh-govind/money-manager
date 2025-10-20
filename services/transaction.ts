@@ -17,10 +17,69 @@ type CreateTransactionData = {
     }>;
 }
 
-export async function getTransactionsByUserId(userId: string) {
+type GetTransactionsFilters = {
+    search?: string;
+    categoryIds?: string[];
+    connectionIds?: string[];
+    sourceIds?: string[];
+    types?: ("INCOME" | "EXPENSE" | "TRANSFER")[];
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    cursor?: string;
+}
+
+export async function getTransactionsByUserId(userId: string, filters?: GetTransactionsFilters) {
     try {
-        return await prisma.transaction.findMany({
-            where: { userId },
+        const {
+            search,
+            categoryIds,
+            connectionIds,
+            sourceIds,
+            types,
+            dateFrom,
+            dateTo,
+            limit = 20,
+            cursor
+        } = filters || {};
+
+        const where: any = { userId };
+
+        if (search) {
+            where.OR = [
+                { title: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
+        if (categoryIds && categoryIds.length > 0) {
+            where.categoryId = { in: categoryIds };
+        }
+
+        if (sourceIds && sourceIds.length > 0) {
+            where.sourceId = { in: sourceIds };
+        }
+
+        if (types && types.length > 0) {
+            where.type = { in: types };
+        }
+
+        if (dateFrom || dateTo) {
+            where.date = {};
+            if (dateFrom) where.date.gte = dateFrom;
+            if (dateTo) where.date.lte = dateTo;
+        }
+
+        if (connectionIds && connectionIds.length > 0) {
+            where.splits = {
+                some: {
+                    connectionId: { in: connectionIds }
+                }
+            };
+        }
+
+        const transactions = await prisma.transaction.findMany({
+            where,
             include: {
                 category: true,
                 source: true,
@@ -30,8 +89,24 @@ export async function getTransactionsByUserId(userId: string) {
                     }
                 }
             },
-            orderBy: { date: 'desc' }
+            orderBy: { date: 'desc' },
+            take: limit + 1,
+            ...(cursor && {
+                skip: 1,
+                cursor: { id: cursor }
+            })
         });
+
+        let nextCursor: string | undefined = undefined;
+        if (transactions.length > limit) {
+            const nextItem = transactions.pop();
+            nextCursor = nextItem?.id;
+        }
+
+        return {
+            transactions,
+            nextCursor
+        };
     } catch (error) {
         console.error('Error in getTransactionsByUserId:', error);
         throw new Error('Failed to get transactions');
