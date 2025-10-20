@@ -10,7 +10,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DateTimePicker } from "@/components/ui/custom/DateTimePicker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea"
@@ -137,7 +137,13 @@ export default function DashboardPage() {
     const [isRefreshingSources, setIsRefreshingSources] = useState<boolean>(false);
 
     const [analyticsTimeRange, setAnalyticsTimeRange] = useState<string>("1month");
-    const [analyticsData, setAnalyticsData] = useState<any>(null);
+    const [analyticsData, setAnalyticsData] = useState<{
+        totals: { income: number; expenses: number; transfers: number; balance: number; incomeCount: number; expenseCount: number; transferCount: number };
+        categoryBreakdown: Array<{ id: string; name: string; emoji: string; amount: number; count: number }>;
+        sourceBreakdown: Array<{ id: string; name: string; type: string; amount: number; count: number }>;
+        timeSeriesData: Array<{ date: string; income: number; expenses: number; net: number }>;
+        topTransactions: Array<{ id: string; title: string; amount: number; date: Date; type: string; category: { emoji: string; title: string } }>;
+    } | null>(null);
     const [loadingAnalytics, setLoadingAnalytics] = useState<boolean>(false);
 
     const observerTarget = useRef<HTMLDivElement>(null);
@@ -1385,7 +1391,7 @@ export default function DashboardPage() {
 
                                             {!hasMore && transactions.length > 0 && (
                                                 <div className="text-center py-6 text-sm text-muted-foreground">
-                                                    You've reached the end of your transactions
+                                                    You&apos;ve reached the end of your transactions
                                                 </div>
                                             )}
                                         </div>
@@ -1545,7 +1551,7 @@ export default function DashboardPage() {
                                                     {(() => {
                                                         const categoryData = analyticsData.categoryBreakdown;
                                                         const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c'];
-                                                        const pieData = categoryData.map((cat: any, index: number) => ({
+                                                        const pieData = categoryData.map((cat: { id: string; name: string; emoji: string; amount: number; count: number }, index: number) => ({
                                                             name: `${cat.emoji} ${cat.name}`,
                                                             value: cat.amount,
                                                             color: COLORS[index % COLORS.length]
@@ -1565,7 +1571,7 @@ export default function DashboardPage() {
                                                                             fill="#8884d8"
                                                                             dataKey="value"
                                                                         >
-                                                                            {pieData.map((entry: any, index: number) => (
+                                                                            {pieData.map((entry: { name: string; value: number; color: string }, index: number) => (
                                                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                                                             ))}
                                                                         </Pie>
@@ -1573,7 +1579,7 @@ export default function DashboardPage() {
                                                                     </PieChart>
                                                                 </ResponsiveContainer>
                                                                 <div className="space-y-2">
-                                                                    {categoryData.slice(0, 5).map((cat: any, index: number) => (
+                                                                    {categoryData.slice(0, 5).map((cat: { id: string; name: string; emoji: string; amount: number; count: number }, index: number) => (
                                                                         <div key={index} className="flex items-center justify-between text-sm">
                                                                             <div className="flex items-center gap-2">
                                                                                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
@@ -1601,7 +1607,7 @@ export default function DashboardPage() {
                                                         const sourceData = analyticsData.sourceBreakdown;
                                                         return sourceData.length > 0 ? (
                                                             <div className="space-y-3">
-                                                                {sourceData.slice(0, 8).map((source: any, index: number) => (
+                                                                {sourceData.slice(0, 8).map((source: { id: string; name: string; type: string; amount: number; count: number }, index: number) => (
                                                                     <div key={index} className="space-y-1">
                                                                         <div className="flex items-center justify-between text-sm">
                                                                             <div className="flex items-center gap-2">
@@ -1631,7 +1637,7 @@ export default function DashboardPage() {
                                             </CardHeader>
                                             <CardContent>
                                                 <div className="space-y-3">
-                                                    {analyticsData.topTransactions.map((transaction: any, index: number) => (
+                                                    {analyticsData.topTransactions.map((transaction: { id: string; title: string; amount: number; date: Date; type: string; category: { emoji: string; title: string } }, index: number) => (
                                                         <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg border">
                                                             <div className="flex items-center gap-3 flex-1">
                                                                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-sm font-bold">
@@ -1790,7 +1796,7 @@ export default function DashboardPage() {
 
                                             {!hasMoreCategories && categoriesData.length > 0 && (
                                                 <div className="text-center py-6 text-sm text-muted-foreground">
-                                                    You've reached the end of your categories
+                                                    You&apos;ve reached the end of your categories
                                                 </div>
                                             )}
                                         </>
@@ -1924,7 +1930,7 @@ export default function DashboardPage() {
 
                                             {!hasMoreConnections && connectionsData.length > 0 && (
                                                 <div className="text-center py-6 text-sm text-muted-foreground">
-                                                    You've reached the end of your connections
+                                                    You&apos;ve reached the end of your connections
                                                 </div>
                                             )}
                                         </>
@@ -2063,7 +2069,7 @@ export default function DashboardPage() {
 
                                             {!hasMoreSources && sourcesData.length > 0 && (
                                                 <div className="text-center py-6 text-sm text-muted-foreground">
-                                                    You've reached the end of your sources
+                                                    You&apos;ve reached the end of your sources
                                                 </div>
                                             )}
                                         </>
