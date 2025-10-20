@@ -39,7 +39,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             <div className="min-h-screen">
-              <div className="container mx-auto">
+              <div className="container max-w-6xl mx-auto">
                 {children}
               </div>
             </div>

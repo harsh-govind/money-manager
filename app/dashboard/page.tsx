@@ -57,6 +57,26 @@ export default function DashboardPage() {
     const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
     const [savingTransaction, setSavingTransaction] = useState<boolean>(false);
 
+    const [activeTab, setActiveTab] = useState<string>("transactions");
+    const tabs = [
+        {
+            label: "Transactions",
+            value: "transactions"
+        },
+        {
+            label: "Categories",
+            value: "categories"
+        },
+        {
+            label: "Connections",
+            value: "connections"
+        },
+        {
+            label: "Sources",
+            value: "sources"
+        },
+    ]
+
     useEffect(() => {
         loadCategories();
         loadConnections();
@@ -262,25 +282,37 @@ export default function DashboardPage() {
 
     return (
         <>
-            <div>
+            <div className="flex flex-col gap-4">
                 <Navbar title="Dashboard" />
 
-                <div className="p-4 flex gap-4">
-                    <Button onClick={() => setTransactionDialogOpen(true)}>
-                        Add Transaction
-                    </Button>
-                    <Button onClick={() => setCategoryDialogOpen(true)} variant="outline">
-                        Add Category
-                    </Button>
-                    <Button onClick={() => setConnectionDialogOpen(true)} variant="outline">
-                        Add Connection
-                    </Button>
-                    <Button onClick={() => setSourceDialogOpen(true)} variant="outline">
-                        Add Source
-                    </Button>
+                <div className=" flex gap-4 justify-between">
+                    <div className="flex gap-2 items-center">
+                        {tabs.map((tab) => (
+                            <div key={tab.value} onClick={() => setActiveTab(tab.value)} className={`border px-2 py-1 rounded-md cursor-pointer hover:bg-muted ${activeTab === tab.value ? "bg-muted" : ""}`}>
+                                <span className={`${activeTab === tab.value ? "font-bold" : ""} ${activeTab === tab.value ? "text-foreground" : ""}`}>{tab.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex gap-2">
+                        <Button onClick={() => setTransactionDialogOpen(true)} size="sm">
+                            Add Transaction
+                        </Button>
+                        <Button onClick={() => setCategoryDialogOpen(true)} variant="outline" size="sm">
+                            Add Category
+                        </Button>
+                        <Button onClick={() => setConnectionDialogOpen(true)} variant="outline" size="sm">
+                            Add Connection
+                        </Button>
+                        <Button onClick={() => setSourceDialogOpen(true)} variant="outline" size="sm">
+                            Add Source
+                        </Button>
+                    </div>
                 </div>
 
 
+                <div>
+                    hi
+                </div>
 
             </div>
 
