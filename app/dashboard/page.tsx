@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/select"
 import { TransactionType } from "@/types/transaction";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Trash2, Plus } from "lucide-react";
 export default function DashboardPage() {
     const [transactionDialogOpen, setTransactionDialogOpen] = useState<boolean>(false);
 
@@ -34,10 +36,56 @@ export default function DashboardPage() {
     const [transactionTitle, setTransactionTitle] = useState<string>("");
     const [transactionCategory, setTransactionCategory] = useState<string>("");
     const [transactionSplitted, setTransactionSplitted] = useState<boolean>(false);
+    const [splitMethod, setSplitMethod] = useState<"equal" | "percentage" | "amount">("equal");
+    const [connections, setConnections] = useState<Array<{ id: string, name: string, amount?: number, percentage?: number }>>([
+        { id: "1", name: "You" }
+    ]);
 
     const closeTransactionDialog = () => {
         setTransactionDialogOpen(false);
     }
+
+    const addConnection = () => {
+        const newId = (connections.length + 1).toString();
+        setConnections([...connections, { id: newId, name: "" }]);
+    };
+
+    const removeConnection = (id: string) => {
+        if (connections.length > 1) {
+            setConnections(connections.filter(conn => conn.id !== id));
+        }
+    };
+
+    const updateConnectionName = (id: string, name: string) => {
+        setConnections(connections.map(conn =>
+            conn.id === id ? { ...conn, name } : conn
+        ));
+    };
+
+    const updateConnectionAmount = (id: string, amount: number) => {
+        setConnections(connections.map(conn =>
+            conn.id === id ? { ...conn, amount } : conn
+        ));
+    };
+
+    const updateConnectionPercentage = (id: string, percentage: number) => {
+        setConnections(connections.map(conn =>
+            conn.id === id ? { ...conn, percentage } : conn
+        ));
+    };
+
+    const calculateEqualSplit = () => {
+        if (!transactionAmount || connections.length === 0) return 0;
+        return transactionAmount / connections.length;
+    };
+
+    const calculateTotalPercentage = () => {
+        return connections.reduce((total, conn) => total + (conn.percentage || 0), 0);
+    };
+
+    const calculateTotalAmount = () => {
+        return connections.reduce((total, conn) => total + (conn.amount || 0), 0);
+    };
 
     const addTransaction = () => {
         console.log("Adding transaction");
@@ -141,9 +189,148 @@ export default function DashboardPage() {
                                 <Label htmlFor="terms">Splitting among others?</Label>
                             </div>
 
-                            <div>
-                                j
-                            </div>
+                            {transactionSplitted && (
+                                <div className="border rounded-lg p-4 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-sm font-medium">Split Transaction</Label>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={addConnection}
+                                            className="flex items-center gap-1"
+                                        >
+                                            <Plus className="h-3 w-3" />
+                                            Add Person
+                                        </Button>
+                                    </div>
+
+                                    <Tabs value={splitMethod} onValueChange={(value) => setSplitMethod(value as "equal" | "percentage" | "amount")}>
+                                        <TabsList className="grid w-full grid-cols-3">
+                                            <TabsTrigger value="equal">Equal</TabsTrigger>
+                                            <TabsTrigger value="percentage">Percentage</TabsTrigger>
+                                            <TabsTrigger value="amount">Amount</TabsTrigger>
+                                        </TabsList>
+
+                                        <TabsContent value="equal" className="space-y-3">
+                                            <div className="text-sm text-muted-foreground">
+                                                Amount will be split equally among {connections.length} people
+                                            </div>
+                                            <div className="space-y-2">
+                                                {connections.map((connection) => (
+                                                    <div key={connection.id} className="flex items-center gap-2">
+                                                        <Input
+                                                            placeholder="Person name"
+                                                            value={connection.name}
+                                                            onChange={(e) => updateConnectionName(connection.id, e.target.value)}
+                                                            className="flex-1"
+                                                        />
+                                                        <div className="text-sm font-medium min-w-[80px] text-right">
+                                                            ₹{calculateEqualSplit().toFixed(2)}
+                                                        </div>
+                                                        {connections.length > 1 && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => removeConnection(connection.id)}
+                                                                className="text-red-500 hover:text-red-700"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </TabsContent>
+
+                                        <TabsContent value="percentage" className="space-y-3">
+                                            <div className="text-sm text-muted-foreground">
+                                                Total: {calculateTotalPercentage()}%
+                                                {calculateTotalPercentage() !== 100 && (
+                                                    <span className="text-red-500 ml-2">
+                                                        (Must equal 100%)
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                {connections.map((connection) => (
+                                                    <div key={connection.id} className="flex items-center gap-2">
+                                                        <Input
+                                                            placeholder="Person name"
+                                                            value={connection.name}
+                                                            onChange={(e) => updateConnectionName(connection.id, e.target.value)}
+                                                            className="flex-1"
+                                                        />
+                                                        <Input
+                                                            type="number"
+                                                            placeholder="%"
+                                                            value={connection.percentage || ""}
+                                                            onChange={(e) => updateConnectionPercentage(connection.id, Number(e.target.value) || 0)}
+                                                            className="w-20"
+                                                        />
+                                                        <div className="text-sm font-medium min-w-[80px] text-right">
+                                                            ₹{transactionAmount ? ((transactionAmount * (connection.percentage || 0)) / 100).toFixed(2) : "0.00"}
+                                                        </div>
+                                                        {connections.length > 1 && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => removeConnection(connection.id)}
+                                                                className="text-red-500 hover:text-red-700"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </TabsContent>
+
+                                        <TabsContent value="amount" className="space-y-3">
+                                            <div className="text-sm text-muted-foreground">
+                                                Total: ₹{calculateTotalAmount().toFixed(2)}
+                                                {transactionAmount && calculateTotalAmount() !== transactionAmount && (
+                                                    <span className="text-red-500 ml-2">
+                                                        (Must equal ₹{transactionAmount})
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                {connections.map((connection) => (
+                                                    <div key={connection.id} className="flex items-center gap-2">
+                                                        <Input
+                                                            placeholder="Person name"
+                                                            value={connection.name}
+                                                            onChange={(e) => updateConnectionName(connection.id, e.target.value)}
+                                                            className="flex-1"
+                                                        />
+                                                        <Input
+                                                            type="number"
+                                                            placeholder="Amount"
+                                                            value={connection.amount || ""}
+                                                            onChange={(e) => updateConnectionAmount(connection.id, Number(e.target.value) || 0)}
+                                                            className="w-24"
+                                                        />
+                                                        {connections.length > 1 && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => removeConnection(connection.id)}
+                                                                className="text-red-500 hover:text-red-700"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </TabsContent>
+                                    </Tabs>
+                                </div>
+                            )}
 
                         </div>
                         }
