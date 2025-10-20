@@ -6,7 +6,8 @@ type CreateTransactionData = {
     amount: number;
     date: Date;
     type: "INCOME" | "EXPENSE" | "TRANSFER";
-    categoryId?: string;
+    categoryId: string;
+    sourceId: string;
     splitMethod?: "equal" | "percentage" | "amount";
     userId: string;
     connections?: Array<{
@@ -22,6 +23,7 @@ export async function getTransactionsByUserId(userId: string) {
             where: { userId },
             include: {
                 category: true,
+                source: true,
                 splits: {
                     include: {
                         connection: true
@@ -53,6 +55,7 @@ export async function createTransaction(data: CreateTransactionData) {
             },
             include: {
                 category: true,
+                source: true,
                 splits: {
                     include: {
                         connection: true
@@ -72,6 +75,7 @@ export async function getTransactionById(transactionId: string) {
             where: { id: transactionId },
             include: {
                 category: true,
+                source: true,
                 splits: {
                     include: {
                         connection: true
@@ -127,6 +131,7 @@ export async function updateTransaction(
             },
             include: {
                 category: true,
+                source: true,
                 splits: {
                     include: {
                         connection: true

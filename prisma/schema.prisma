@@ -56,6 +56,7 @@ model User {
   transactions  Transaction[]
   connections   Connection[]
   categories    Category[]
+  sources       Source[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -81,8 +82,10 @@ model Transaction {
   amount      Float
   date        DateTime
   type        TransactionType
-  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  categoryId  String?   @db.Uuid
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId  String    @db.Uuid
+  source      Source    @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  sourceId    String    @db.Uuid
   splitMethod SplitMethod?
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId      String    @db.Uuid
@@ -142,4 +145,24 @@ model Category {
   transactions Transaction[]
 
   @@map("categories")
+}
+
+model Source {
+  id           String       @id @default(uuid()) @db.Uuid
+  name         String
+  type         SourceType
+  amount       Float        @default(0)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String       @db.Uuid
+  transactions Transaction[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("sources")
+}
+
+enum SourceType {
+  BANK
+  CASH
+  CREDIT
 }

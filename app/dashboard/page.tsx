@@ -22,7 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Connection, TransactionType, SplitMethod, Category } from "@/types/transaction";
+import { Connection, TransactionType, SplitMethod, Category, Source, SourceType } from "@/types/transaction";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Plus } from "lucide-react";
@@ -33,13 +33,18 @@ export default function DashboardPage() {
     const [transactionDialogOpen, setTransactionDialogOpen] = useState<boolean>(false);
     const [categoryDialogOpen, setCategoryDialogOpen] = useState<boolean>(false);
     const [connectionDialogOpen, setConnectionDialogOpen] = useState<boolean>(false);
+    const [sourceDialogOpen, setSourceDialogOpen] = useState<boolean>(false);
 
     const [categories, setCategories] = useState<Array<Category>>([]);
     const [availableConnections, setAvailableConnections] = useState<Array<Connection>>([]);
+    const [sources, setSources] = useState<Array<Source>>([]);
 
     const [newCategoryTitle, setNewCategoryTitle] = useState<string>("");
     const [newCategoryEmoji, setNewCategoryEmoji] = useState<string>("");
     const [newConnectionName, setNewConnectionName] = useState<string>("");
+    const [newSourceName, setNewSourceName] = useState<string>("");
+    const [newSourceType, setNewSourceType] = useState<SourceType>("BANK");
+    const [newSourceAmount, setNewSourceAmount] = useState<number>(0);
 
     const [transactionAmount, setTransactionAmount] = useState<number | null>(null);
     const [transactionDate, setTransactionDate] = useState<Date>(new Date());
@@ -47,6 +52,7 @@ export default function DashboardPage() {
     const [transactionType, setTransactionType] = useState<TransactionType>("EXPENSE");
     const [transactionTitle, setTransactionTitle] = useState<string>("");
     const [transactionCategory, setTransactionCategory] = useState<string>("");
+    const [transactionSource, setTransactionSource] = useState<string>("");
     const [transactionSplitted, setTransactionSplitted] = useState<boolean>(false);
     const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
     const [savingTransaction, setSavingTransaction] = useState<boolean>(false);
@@ -54,6 +60,7 @@ export default function DashboardPage() {
     useEffect(() => {
         loadCategories();
         loadConnections();
+        loadSources();
     }, []);
 
     const loadCategories = async () => {
@@ -79,6 +86,16 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Error loading connections:', error);
             toast.error('Failed to load connections');
+        }
+    };
+
+    const loadSources = async () => {
+        try {
+            const response = await axios.get('/api/source');
+            setSources(response.data.sources);
+        } catch (error) {
+            console.error('Error loading sources:', error);
+            toast.error('Failed to load sources');
         }
     };
 
@@ -130,6 +147,30 @@ export default function DashboardPage() {
         }
     };
 
+    const createSource = async () => {
+        if (!newSourceName) {
+            toast.error('Please enter a name');
+            return;
+        }
+
+        try {
+            const response = await axios.post('/api/source', {
+                name: newSourceName,
+                type: newSourceType,
+                amount: newSourceAmount
+            });
+            setSources([response.data.source, ...sources]);
+            setNewSourceName("");
+            setNewSourceType("BANK");
+            setNewSourceAmount(0);
+            setSourceDialogOpen(false);
+            toast.success(response.data.message);
+        } catch (error) {
+            console.error('Error creating source:', error);
+            toast.error('Failed to create source');
+        }
+    };
+
     const closeTransactionDialog = () => {
         setTransactionDialogOpen(false);
     }
@@ -174,7 +215,7 @@ export default function DashboardPage() {
 
     const addTransaction = async () => {
         try {
-            if (!transactionTitle || !transactionAmount) {
+            if (!transactionTitle || !transactionAmount || !transactionSource || !transactionCategory) {
                 toast.error('Please fill required fields');
                 return;
             }
@@ -189,6 +230,7 @@ export default function DashboardPage() {
                 transactionType,
                 transactionCategory,
                 transactionTitle,
+                transactionSource,
                 transactionSplitted,
                 splitMethod,
                 connections: selectedForSplit,
@@ -201,6 +243,7 @@ export default function DashboardPage() {
             setTransactionAmount(null);
             setTransactionDate(new Date());
             setTransactionCategory("");
+            setTransactionSource("");
             setTransactionSplitted(false);
             setAvailableConnections(availableConnections.map(conn => ({
                 ...conn,
@@ -231,6 +274,9 @@ export default function DashboardPage() {
                     </Button>
                     <Button onClick={() => setConnectionDialogOpen(true)} variant="outline">
                         Add Connection
+                    </Button>
+                    <Button onClick={() => setSourceDialogOpen(true)} variant="outline">
+                        Add Source
                     </Button>
                 </div>
 
@@ -292,7 +338,7 @@ export default function DashboardPage() {
 
                             <div className="flex flex-col gap-1 w-1/2">
                                 <div className="flex items-center justify-between px-1">
-                                    <Label htmlFor="transaction-category">Category</Label>
+                                    <Label htmlFor="transaction-category">Category *</Label>
                                 </div>
                                 <div className="flex gap-2 w-full items-center">
                                     <Select value={transactionCategory} onValueChange={(value) => setTransactionCategory(value)}>
@@ -324,6 +370,42 @@ export default function DashboardPage() {
                                         <Plus />
                                     </Button>
                                 </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between px-1">
+                                <Label htmlFor="transaction-source">Source *</Label>
+                            </div>
+                            <div className="flex gap-2 w-full items-center">
+                                <Select value={transactionSource} onValueChange={(value) => setTransactionSource(value)}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select source" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {sources.length === 0 ? (
+                                            <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                No sources yet
+                                            </div>
+                                        ) : (
+                                            sources.map((source) => (
+                                                <SelectItem key={source.id} value={source.id}>
+                                                    {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name} (₹{source.amount.toFixed(2)})
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => {
+                                        setSourceDialogOpen(true);
+                                    }}
+                                >
+                                    <Plus />
+                                </Button>
                             </div>
                         </div>
 
@@ -560,6 +642,69 @@ export default function DashboardPage() {
                     <DialogFooter className="gap-2">
                         <Button onClick={() => setConnectionDialogOpen(false)} variant="outline">Cancel</Button>
                         <Button onClick={createConnection}>Add Connection</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Add Source</DialogTitle>
+                        <DialogDescription>
+                            Add a payment source like bank account, cash, or credit card.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-2">
+                            <Label htmlFor="source-name">Name *</Label>
+                            <Input
+                                id="source-name"
+                                placeholder="e.g., HDFC Bank"
+                                value={newSourceName}
+                                onChange={(e) => setNewSourceName(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <Label htmlFor="source-type">Type *</Label>
+                            <Select value={newSourceType} onValueChange={(value) => setNewSourceType(value as SourceType)}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="BANK">🏦 Bank</SelectItem>
+                                    <SelectItem value="CASH">💵 Cash</SelectItem>
+                                    <SelectItem value="CREDIT">💳 Credit</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <Label htmlFor="source-amount">Initial Amount</Label>
+                            <Input
+                                id="source-amount"
+                                type="number"
+                                placeholder="0.00"
+                                value={newSourceAmount || ""}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === "") {
+                                        setNewSourceAmount(0);
+                                    } else {
+                                        const numValue = Number(value);
+                                        if (!isNaN(numValue)) {
+                                            setNewSourceAmount(numValue);
+                                        }
+                                    }
+                                }}
+                                className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <p className="text-xs text-muted-foreground">Enter the current balance in this source</p>
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button onClick={() => setSourceDialogOpen(false)} variant="outline">Cancel</Button>
+                        <Button onClick={createSource}>Add Source</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

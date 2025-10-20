@@ -44,12 +44,13 @@ export async function POST(req: NextRequest) {
             transactionType,
             transactionCategory,
             transactionTitle,
+            transactionSource,
             transactionSplitted,
             splitMethod,
             connections
         } = await req.json();
 
-        if (!transactionAmount || !transactionDate || !transactionType || !transactionTitle) {
+        if (!transactionAmount || !transactionDate || !transactionType || !transactionTitle || !transactionSource || !transactionCategory) {
             return NextResponse.json({
                 message: "Required fields missing"
             }, { status: 400 });
@@ -61,7 +62,8 @@ export async function POST(req: NextRequest) {
             amount: transactionAmount,
             date: new Date(transactionDate),
             type: transactionType,
-            categoryId: transactionCategory || undefined,
+            categoryId: transactionCategory,
+            sourceId: transactionSource,
             splitMethod: transactionSplitted && splitMethod ? splitMethod : undefined,
             userId: session.user.id,
             connections: transactionSplitted && connections?.length > 0 ? connections : undefined
