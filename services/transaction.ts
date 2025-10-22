@@ -14,6 +14,7 @@ type CreateTransactionData = {
         id: string;
         amount?: number;
         percentage?: number;
+        isSelf?: boolean;
     }>;
 }
 
@@ -73,7 +74,10 @@ export async function getTransactionsByUserId(userId: string, filters?: GetTrans
         if (connectionIds && connectionIds.length > 0) {
             where.splits = {
                 some: {
-                    connectionId: { in: connectionIds }
+                    OR: [
+                        { connectionId: { in: connectionIds } },
+                        { selfUserId: { in: connectionIds } }
+                    ]
                 }
             };
         }
@@ -85,7 +89,13 @@ export async function getTransactionsByUserId(userId: string, filters?: GetTrans
                 source: true,
                 splits: {
                     include: {
-                        connection: true
+                        connection: true,
+                        selfUser: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 }
             },
@@ -122,7 +132,7 @@ export async function createTransaction(data: CreateTransactionData) {
                 ...transactionData,
                 splits: connections && connections.length > 0 ? {
                     create: connections.map((conn) => ({
-                        connectionId: conn.id,
+                        ...(conn.isSelf ? { selfUserId: conn.id } : { connectionId: conn.id }),
                         amount: conn.amount || null,
                         percentage: conn.percentage || null
                     }))
@@ -133,7 +143,13 @@ export async function createTransaction(data: CreateTransactionData) {
                 source: true,
                 splits: {
                     include: {
-                        connection: true
+                        connection: true,
+                        selfUser: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 }
             }
@@ -153,7 +169,13 @@ export async function getTransactionById(transactionId: string) {
                 source: true,
                 splits: {
                     include: {
-                        connection: true
+                        connection: true,
+                        selfUser: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 }
             }
@@ -197,7 +219,7 @@ export async function updateTransaction(
                     splits: {
                         deleteMany: {},
                         create: connections.map((conn) => ({
-                            connectionId: conn.id,
+                            ...(conn.isSelf ? { selfUserId: conn.id } : { connectionId: conn.id }),
                             amount: conn.amount || null,
                             percentage: conn.percentage || null
                         }))
@@ -209,7 +231,13 @@ export async function updateTransaction(
                 source: true,
                 splits: {
                     include: {
-                        connection: true
+                        connection: true,
+                        selfUser: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 }
             }

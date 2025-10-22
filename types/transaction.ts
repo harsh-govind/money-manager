@@ -30,17 +30,23 @@ export type Connection = {
     amount?: number;
     percentage?: number;
     selected?: boolean;
+    isSelf?: boolean;
 }
 
 export type Split = {
     id: string;
     transactionId: string;
-    connectionId: string;
+    connectionId: string | null;
+    selfUserId: string | null;
     amount?: number;
     percentage?: number;
     createdAt: Date;
     updatedAt: Date;
     connection?: Connection;
+    selfUser?: {
+        id: string;
+        name: string | null;
+    };
 }
 
 export type Transaction = {

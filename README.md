@@ -15,6 +15,28 @@ So I built my own solution that addresses these pain points.
 - **Manage connections** - For splitting expenses among people
 - **Manage sources** - Bank accounts, credit cards, cash
 
+## Screenshots
+
+### Transactions
+
+![Transactions](./public/screenshots/transactions.png)
+
+### Analytics
+
+![Analytics](./public/screenshots/analytics.png)
+
+### Categories
+
+![Categories](./public/screenshots/category.png)
+
+### Sources
+
+![Sources](./public/screenshots/sources.png)
+
+### Connections
+
+![Connections](./public/screenshots/connections.png)
+
 ## Upcoming Features
 
 - Import/Export functionality
