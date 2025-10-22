@@ -27,7 +27,12 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({
             message: "Connections fetched successfully",
             connections: result.connections,
-            nextCursor: result.nextCursor
+            nextCursor: result.nextCursor,
+            user: {
+                id: session.user.id,
+                name: session.user.name,
+                email: session.user.email
+            }
         });
     } catch (error) {
         console.error('Error fetching connections:', error);

@@ -344,9 +344,22 @@ export default function DashboardPage() {
                 ...conn,
                 selected: false,
                 amount: 0,
-                percentage: 0
+                percentage: 0,
+                isSelf: false
             }));
-            setAvailableConnections(connections);
+            const user = response.data.user;
+            const myselfConnection: Connection = {
+                id: user.id,
+                name: user.name || "Myself",
+                userId: user.id,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                selected: false,
+                amount: 0,
+                percentage: 0,
+                isSelf: true
+            };
+            setAvailableConnections([myselfConnection, ...connections]);
         } catch (error) {
             console.error('Error loading connections:', error);
             toast.error('Failed to load connections');
@@ -1255,7 +1268,10 @@ export default function DashboardPage() {
                                                                         onClick={() => toggleConnection(connection.id)}
                                                                     >
                                                                         <Checkbox checked={selectedConnections.includes(connection.id)} />
-                                                                        <span className="text-sm">{connection.name}</span>
+                                                                        <span className="text-sm flex items-center gap-1">
+                                                                            {connection.isSelf && <span>👤</span>}
+                                                                            {connection.name}
+                                                                        </span>
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -1344,7 +1360,7 @@ export default function DashboardPage() {
                                                                         </div>
                                                                         {transaction.splits && transaction.splits.length > 0 && (
                                                                             <Badge variant="secondary" className="text-xs">
-                                                                                Split with {transaction.splits.map(s => s.connection?.name).filter(Boolean).join(', ')}
+                                                                                Split with {transaction.splits.map(s => s.selfUser ? (s.selfUser.name || "Myself") : s.connection?.name).filter(Boolean).join(', ')}
                                                                             </Badge>
                                                                         )}
                                                                     </div>
@@ -2265,7 +2281,8 @@ export default function DashboardPage() {
                                                                     checked={connection.selected}
                                                                     onCheckedChange={() => toggleConnectionSelection(connection.id)}
                                                                 />
-                                                                <Label className="flex-1 cursor-pointer" onClick={() => toggleConnectionSelection(connection.id)}>
+                                                                <Label className="flex-1 cursor-pointer flex items-center gap-1" onClick={() => toggleConnectionSelection(connection.id)}>
+                                                                    {connection.isSelf && <span>👤</span>}
                                                                     {connection.name}
                                                                 </Label>
                                                                 {connection.selected && (
@@ -2294,7 +2311,8 @@ export default function DashboardPage() {
                                                                     checked={connection.selected}
                                                                     onCheckedChange={() => toggleConnectionSelection(connection.id)}
                                                                 />
-                                                                <Label className="flex-1 cursor-pointer" onClick={() => toggleConnectionSelection(connection.id)}>
+                                                                <Label className="flex-1 cursor-pointer flex items-center gap-1" onClick={() => toggleConnectionSelection(connection.id)}>
+                                                                    {connection.isSelf && <span>👤</span>}
                                                                     {connection.name}
                                                                 </Label>
                                                                 {connection.selected && (
@@ -2333,7 +2351,8 @@ export default function DashboardPage() {
                                                                     checked={connection.selected}
                                                                     onCheckedChange={() => toggleConnectionSelection(connection.id)}
                                                                 />
-                                                                <Label className="flex-1 cursor-pointer" onClick={() => toggleConnectionSelection(connection.id)}>
+                                                                <Label className="flex-1 cursor-pointer flex items-center gap-1" onClick={() => toggleConnectionSelection(connection.id)}>
+                                                                    {connection.isSelf && <span>👤</span>}
                                                                     {connection.name}
                                                                 </Label>
                                                                 {connection.selected && (

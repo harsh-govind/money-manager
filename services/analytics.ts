@@ -23,7 +23,13 @@ export async function getAnalytics({ userId, dateFrom, dateTo, timeRange }: GetA
                 source: true,
                 splits: {
                     include: {
-                        connection: true
+                        connection: true,
+                        selfUser: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 }
             },
