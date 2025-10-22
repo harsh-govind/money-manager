@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader } from "@/components/ui/loader";
 
 export default function SignInPage() {
     const { data: session, status } = useSession();
@@ -17,11 +18,7 @@ export default function SignInPage() {
     }, [session, router]);
 
     if (status === "loading") {
-        return (
-            <div className="flex items-center justify-center">
-                <div className="text-lg">Loading...</div>
-            </div>
-        );
+        return <Loader />;
     }
 
     if (session) {

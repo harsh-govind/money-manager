@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Github, Star, ArrowRight } from "lucide-react";
 import Image from "next/image";
+import { Loader } from "@/components/ui/loader";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -26,11 +27,7 @@ export default function Home() {
   }, []);
 
   if (status === "loading") {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
+    return <Loader />;
   }
 
   return (
