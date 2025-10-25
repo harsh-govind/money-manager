@@ -13,6 +13,9 @@ export default function TrashPage() {
     const router = useRouter();
     const [trashItems, setTrashItems] = useState<Array<any>>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    const [restoringId, setRestoringId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [emptyingTrash, setEmptyingTrash] = useState<boolean>(false);
 
     useEffect(() => {
         loadTrashItems();
@@ -32,6 +35,7 @@ export default function TrashPage() {
     };
 
     const handleRestore = async (trashId: string) => {
+        setRestoringId(trashId);
         try {
             await axios.post('/api/trash', { id: trashId, action: 'restore' });
             setTrashItems(trashItems.filter(item => item.id !== trashId));
@@ -39,6 +43,8 @@ export default function TrashPage() {
         } catch (error) {
             console.error('Error restoring item:', error);
             toast.error('Failed to restore transaction');
+        } finally {
+            setRestoringId(null);
         }
     };
 
@@ -47,6 +53,7 @@ export default function TrashPage() {
             return;
         }
 
+        setDeletingId(trashId);
         try {
             await axios.delete(`/api/trash?id=${trashId}`);
             setTrashItems(trashItems.filter(item => item.id !== trashId));
@@ -54,6 +61,8 @@ export default function TrashPage() {
         } catch (error) {
             console.error('Error deleting item:', error);
             toast.error('Failed to delete item');
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -62,6 +71,7 @@ export default function TrashPage() {
             return;
         }
 
+        setEmptyingTrash(true);
         try {
             await axios.post('/api/trash', { action: 'empty', id: '' });
             setTrashItems([]);
@@ -69,6 +79,8 @@ export default function TrashPage() {
         } catch (error) {
             console.error('Error emptying trash:', error);
             toast.error('Failed to empty trash');
+        } finally {
+            setEmptyingTrash(false);
         }
     };
 
@@ -84,13 +96,22 @@ export default function TrashPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button onClick={() => router.push('/dashboard')} variant="outline">
+                    <Button onClick={() => router.push('/dashboard')} variant="outline" disabled={restoringId !== null || deletingId !== null || emptyingTrash}>
                         Back to Dashboard
                     </Button>
                     {trashItems.length > 0 && (
-                        <Button onClick={handleEmptyTrash} variant="destructive">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Empty Trash
+                        <Button onClick={handleEmptyTrash} variant="destructive" disabled={emptyingTrash || restoringId !== null || deletingId !== null}>
+                            {emptyingTrash ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Emptying...
+                                </>
+                            ) : (
+                                <>
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Empty Trash
+                                </>
+                            )}
                         </Button>
                     )}
                 </div>
@@ -134,8 +155,8 @@ export default function TrashPage() {
                                                         </span>
                                                         <span>•</span>
                                                         <span className={`font-semibold ${data.type === 'INCOME' ? 'text-green-600' :
-                                                                data.type === 'EXPENSE' ? 'text-red-600' :
-                                                                    'text-blue-600'
+                                                            data.type === 'EXPENSE' ? 'text-red-600' :
+                                                                'text-blue-600'
                                                             }`}>
                                                             {data.type === 'INCOME' ? '+' : data.type === 'EXPENSE' ? '-' : ''}
                                                             ₹{data.amount?.toFixed(2)}
@@ -162,18 +183,33 @@ export default function TrashPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => handleRestore(item.id)}
-                                                    className="gap-2"
+                                                    disabled={restoringId === item.id || deletingId !== null || emptyingTrash}
+                                                    className="gap-2 min-w-[100px]"
                                                 >
-                                                    <RotateCcw className="h-4 w-4" />
-                                                    Restore
+                                                    {restoringId === item.id ? (
+                                                        <>
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            Restoring
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <RotateCcw className="h-4 w-4" />
+                                                            Restore
+                                                        </>
+                                                    )}
                                                 </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => handlePermanentDelete(item.id)}
+                                                    disabled={deletingId === item.id || restoringId !== null || emptyingTrash}
                                                     className="text-destructive hover:text-destructive"
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
+                                                    {deletingId === item.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="h-4 w-4" />
+                                                    )}
                                                 </Button>
                                             </div>
                                         </div>
