@@ -63,6 +63,7 @@ export default function DashboardPage() {
     const [transactionSource, setTransactionSource] = useState<string>("");
     const [transactionSplitted, setTransactionSplitted] = useState<boolean>(false);
     const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
+    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
     const [savingState, setSavingState] = useState<string | null>(null);
 
@@ -961,6 +962,58 @@ export default function DashboardPage() {
         setTransactionDialogOpen(false);
     }
 
+    const openEditTransaction = (transaction: Transaction) => {
+        setEditingTransaction(transaction);
+        setTransactionTitle(transaction.title);
+        setTransactionDescription(transaction.description || "");
+        setTransactionAmount(transaction.amount);
+        setTransactionDate(new Date(transaction.date));
+        setTransactionType(transaction.type);
+        setTransactionCategory(transaction.categoryId);
+        setTransactionSource(transaction.sourceId);
+        setTransactionSplitted(Boolean(transaction.splits && transaction.splits.length > 0));
+        setSplitMethod(transaction.splitMethod || "equal");
+
+        if (transaction.splits && transaction.splits.length > 0) {
+            setAvailableConnections(availableConnections.map(conn => {
+                const split = transaction.splits?.find(s =>
+                    s.connectionId === conn.id || s.selfUserId === conn.id
+                );
+                if (split) {
+                    return {
+                        ...conn,
+                        selected: true,
+                        amount: split.amount || 0,
+                        percentage: split.percentage || 0
+                    };
+                }
+                return { ...conn, selected: false, amount: 0, percentage: 0 };
+            }));
+        }
+
+        setTransactionDialogOpen(true);
+    };
+
+    const resetTransactionForm = () => {
+        setEditingTransaction(null);
+        setTransactionTitle("");
+        setTransactionDescription("");
+        setTransactionAmount(null);
+        setTransactionDate(new Date());
+        setTransactionType("EXPENSE");
+        setTransactionCategory("");
+        setTransactionSource("");
+        setTransactionSplitted(false);
+        setSplitMethod("equal");
+        setAvailableConnections(availableConnections.map(conn => ({
+            ...conn,
+            selected: false,
+            amount: 0,
+            percentage: 0
+        })));
+        setTransactionDialogOpen(false);
+    };
+
     const toggleConnectionSelection = (id: string) => {
         setAvailableConnections(availableConnections.map(conn =>
             conn.id === id ? { ...conn, selected: !conn.selected } : conn
@@ -999,17 +1052,19 @@ export default function DashboardPage() {
         return selected.reduce((total, conn) => total + (conn.amount || 0), 0);
     };
 
-    const addTransaction = async () => {
+    const saveTransaction = async () => {
         try {
             if (!transactionTitle || !transactionAmount || !transactionSource || !transactionCategory) {
                 toast.error('Please fill required fields');
                 return;
             }
-            setSavingState('add-transaction');
+
+            const actionType = editingTransaction ? 'update-transaction' : 'add-transaction';
+            setSavingState(actionType);
 
             const selectedForSplit = getSelectedConnections();
 
-            const response = await axios.post('/api/transaction', {
+            const payload = {
                 transactionAmount,
                 transactionDate,
                 transactionDescription,
@@ -1020,31 +1075,31 @@ export default function DashboardPage() {
                 transactionSplitted,
                 splitMethod,
                 connections: selectedForSplit,
-            })
+            };
+
+            let response: { data: { transaction: Transaction; message: string } };
+            if (editingTransaction) {
+                response = await axios.put('/api/transaction', {
+                    ...payload,
+                    id: editingTransaction.id
+                });
+                setTransactions(transactions.map(txn =>
+                    txn.id === editingTransaction.id ? response.data.transaction : txn
+                ));
+            } else {
+                response = await axios.post('/api/transaction', payload);
+            }
 
             toast.success(response.data.message);
-            closeTransactionDialog();
-            setTransactionTitle("");
-            setTransactionDescription("");
-            setTransactionAmount(null);
-            setTransactionDate(new Date());
-            setTransactionCategory("");
-            setTransactionSource("");
-            setTransactionSplitted(false);
-            setAvailableConnections(availableConnections.map(conn => ({
-                ...conn,
-                selected: false,
-                amount: 0,
-                percentage: 0
-            })));
+            resetTransactionForm();
 
             if (activeTab === "transactions") {
                 resetAndLoadTransactions();
             }
 
         } catch (error) {
-            console.error('Error adding transaction\n', error)
-            toast.error('Error adding transaction')
+            console.error('Error saving transaction\n', error)
+            toast.error('Error saving transaction')
         } finally {
             setSavingState(null);
         }
@@ -1064,7 +1119,10 @@ export default function DashboardPage() {
                         ))}
                     </div>
                     <div className="flex gap-2">
-                        <Button onClick={() => setTransactionDialogOpen(true)} size="sm" disabled={savingState !== null}>
+                        <Button onClick={() => {
+                            resetTransactionForm();
+                            setTransactionDialogOpen(true)
+                        }} size="sm" disabled={savingState !== null}>
                             Add Transaction
                         </Button>
                         <Button onClick={() => setCategoryDialogOpen(true)} variant="outline" size="sm" disabled={savingState !== null}>
@@ -1366,14 +1424,24 @@ export default function DashboardPage() {
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="text-right">
-                                                                <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
-                                                                    transaction.type === 'EXPENSE' ? 'text-red-600 dark:text-red-400' :
-                                                                        'text-blue-600 dark:text-blue-400'
-                                                                    }`}>
-                                                                    {transaction.type === 'INCOME' ? '+' : transaction.type === 'EXPENSE' ? '-' : ''}
-                                                                    ₹{transaction.amount.toFixed(2)}
+                                                            <div className="flex items-start gap-2">
+                                                                <div className="text-right">
+                                                                    <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
+                                                                        transaction.type === 'EXPENSE' ? 'text-red-600 dark:text-red-400' :
+                                                                            'text-blue-600 dark:text-blue-400'
+                                                                        }`}>
+                                                                        {transaction.type === 'INCOME' ? '+' : transaction.type === 'EXPENSE' ? '-' : ''}
+                                                                        ₹{transaction.amount.toFixed(2)}
+                                                                    </div>
                                                                 </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEditTransaction(transaction)}
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
                                                             </div>
                                                         </div>
                                                     </CardContent>
@@ -2101,7 +2169,7 @@ export default function DashboardPage() {
             <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
                 <DialogContent className="min-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Add Transaction</DialogTitle>
+                        <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
                         <DialogDescription>
                             Track your income, expenses, and transfers with detailed information.
                         </DialogDescription>
@@ -2380,9 +2448,9 @@ export default function DashboardPage() {
 
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button onClick={closeTransactionDialog} variant="outline" disabled={savingState !== null}>Cancel</Button>
-                        <Button onClick={addTransaction} className="w-[135px]" disabled={savingState !== null}>
-                            {savingState === 'add-transaction' ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving</> : "Add Transaction"}
+                        <Button onClick={resetTransactionForm} variant="outline" disabled={savingState !== null}>Cancel</Button>
+                        <Button onClick={saveTransaction} className={`w-[${editingTransaction ? '160px' : '135px'}]`} disabled={savingState !== null}>
+                            {(savingState === 'add-transaction' || savingState === 'update-transaction') ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving</> : editingTransaction ? "Update Transaction" : "Add Transaction"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
