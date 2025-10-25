@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getTransactionsByUserId, createTransaction, updateTransaction } from "@/services/transaction";
+import { getTransactionsByUserId, createTransaction, updateTransaction, deleteTransactionById } from "@/services/transaction";
 
 export async function GET(req: NextRequest) {
     try {
@@ -158,6 +158,38 @@ export async function PUT(req: NextRequest) {
         console.error('Error updating transaction:', error);
         return NextResponse.json({
             message: "Failed to update transaction"
+        }, { status: 500 });
+    }
+}
+
+export async function DELETE(req: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user?.id) {
+            return NextResponse.json({
+                message: "Unauthorized"
+            }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get('id');
+
+        if (!id) {
+            return NextResponse.json({
+                message: "Transaction ID is required"
+            }, { status: 400 });
+        }
+
+        await deleteTransactionById(id, session.user.id);
+
+        return NextResponse.json({
+            message: "Transaction deleted successfully"
+        }, { status: 200 });
+    } catch (error) {
+        console.error('Error deleting transaction:', error);
+        return NextResponse.json({
+            message: "Failed to delete transaction"
         }, { status: 500 });
     }
 }

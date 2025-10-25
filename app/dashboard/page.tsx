@@ -25,7 +25,7 @@ import {
 import { Connection, TransactionType, SplitMethod, Category, Source, SourceType, Transaction } from "@/types/transaction";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Search, Filter, X, Calendar, ArrowUpDown, TrendingUp, TrendingDown, ArrowRightLeft, RefreshCw, Edit } from "lucide-react";
+import { Loader2, Plus, Search, Filter, X, Calendar, ArrowUpDown, TrendingUp, TrendingDown, ArrowRightLeft, RefreshCw, Edit, Trash2 } from "lucide-react";
 import axios from "axios";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -801,6 +801,25 @@ export default function DashboardPage() {
         }
     };
 
+    const handleDeleteTransaction = async (transactionId: string) => {
+        if (!confirm('Are you sure you want to delete this transaction? This will also update your source balance.')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/transaction?id=${transactionId}`);
+            setTransactions(transactions.filter((t: Transaction) => t.id !== transactionId));
+            await loadSources();
+            if (activeTab === "analytics") {
+                await loadAnalyticsData();
+            }
+            toast.success('Transaction deleted successfully');
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+            toast.error('Failed to delete transaction');
+        }
+    };
+
     const loadAnalyticsData = async () => {
         setLoadingAnalytics(true);
         try {
@@ -1447,6 +1466,14 @@ export default function DashboardPage() {
                                                                     className="h-8 w-8 p-0"
                                                                 >
                                                                     <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleDeleteTransaction(transaction.id)}
+                                                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
                                                                 </Button>
                                                             </div>
                                                         </div>
@@ -2121,7 +2148,7 @@ export default function DashboardPage() {
                                                                                     Outstanding: ₹{source.amount.toFixed(2)}
                                                                                 </p>
                                                                                 <p className="text-xs text-muted-foreground">
-                                                                                    Limit: ₹{source.creditLimit.toFixed(2)} • Available: ₹{(source.creditLimit - source.amount).toFixed(2)}
+                                                                                    ₹{(source.creditLimit - source.amount).toFixed(2)} / ₹{source.creditLimit.toFixed(2)}
                                                                                 </p>
                                                                             </div>
                                                                         ) : (
