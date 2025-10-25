@@ -9,9 +9,31 @@ import axios from "axios";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 
+type TrashItem = {
+    id: string;
+    type: string;
+    deletedAt: string;
+    data: {
+        id: string;
+        title: string;
+        description?: string;
+        amount: number;
+        date: string;
+        type: "INCOME" | "EXPENSE" | "TRANSFER";
+        category?: {
+            title: string;
+            emoji: string;
+        };
+        source?: {
+            name: string;
+            type: string;
+        };
+    };
+};
+
 export default function TrashPage() {
     const router = useRouter();
-    const [trashItems, setTrashItems] = useState<Array<any>>([]);
+    const [trashItems, setTrashItems] = useState<Array<TrashItem>>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [restoringId, setRestoringId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -131,7 +153,7 @@ export default function TrashPage() {
                 ) : (
                     <div className="space-y-3">
                         {trashItems.map((item) => {
-                            const data = item.data as any;
+                            const data = item.data;
                             return (
                                 <Card key={item.id} className="hover:shadow-md transition-shadow">
                                     <CardContent className="p-4">
