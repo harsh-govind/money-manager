@@ -16,6 +16,7 @@ export type Source = {
     name: string;
     type: SourceType;
     amount: number;
+    creditLimit?: number;
     userId: string;
     createdAt: Date;
     updatedAt: Date;

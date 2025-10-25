@@ -46,13 +46,14 @@ export async function getSourcesByUserId(userId: string, filters?: GetSourcesFil
     }
 }
 
-export async function createSource(userId: string, name: string, type: "BANK" | "CASH" | "CREDIT", amount: number) {
+export async function createSource(userId: string, name: string, type: "BANK" | "CASH" | "CREDIT", amount: number, creditLimit?: number) {
     try {
         return await prisma.source.create({
             data: {
                 name,
                 type,
                 amount,
+                ...(creditLimit !== undefined && { creditLimit }),
                 userId
             }
         });
@@ -87,7 +88,7 @@ export async function deleteSourceById(sourceId: string, userId: string) {
     }
 }
 
-export async function updateSource(sourceId: string, userId: string, name?: string, type?: "BANK" | "CASH" | "CREDIT", amount?: number) {
+export async function updateSource(sourceId: string, userId: string, name?: string, type?: "BANK" | "CASH" | "CREDIT", amount?: number, creditLimit?: number) {
     try {
         return await prisma.source.update({
             where: {
@@ -97,7 +98,8 @@ export async function updateSource(sourceId: string, userId: string, name?: stri
             data: {
                 ...(name && { name }),
                 ...(type && { type }),
-                ...(amount !== undefined && { amount })
+                ...(amount !== undefined && { amount }),
+                ...(creditLimit !== undefined && { creditLimit })
             }
         });
     } catch (error) {

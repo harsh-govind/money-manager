@@ -52,6 +52,7 @@ export default function DashboardPage() {
     const [newSourceName, setNewSourceName] = useState<string>("");
     const [newSourceType, setNewSourceType] = useState<SourceType>("BANK");
     const [newSourceAmount, setNewSourceAmount] = useState<number>(0);
+    const [newSourceCreditLimit, setNewSourceCreditLimit] = useState<number>(0);
     const [editingSource, setEditingSource] = useState<Source | null>(null);
 
     const [transactionAmount, setTransactionAmount] = useState<number | null>(null);
@@ -771,6 +772,7 @@ export default function DashboardPage() {
         setNewSourceName(source.name);
         setNewSourceType(source.type);
         setNewSourceAmount(source.amount);
+        setNewSourceCreditLimit(source.creditLimit || 0);
         setSourceDialogOpen(true);
     };
 
@@ -779,6 +781,7 @@ export default function DashboardPage() {
         setNewSourceName("");
         setNewSourceType("BANK");
         setNewSourceAmount(0);
+        setNewSourceCreditLimit(0);
         setSourceDialogOpen(false);
     };
 
@@ -923,7 +926,8 @@ export default function DashboardPage() {
                     id: editingSource.id,
                     name: newSourceName,
                     type: newSourceType,
-                    amount: newSourceAmount
+                    amount: newSourceAmount,
+                    creditLimit: newSourceType === 'CREDIT' ? newSourceCreditLimit : undefined
                 });
                 setSources(sources.map(src =>
                     src.id === editingSource.id ? response.data.source : src
@@ -936,7 +940,8 @@ export default function DashboardPage() {
                 const response = await axios.post('/api/source', {
                     name: newSourceName,
                     type: newSourceType,
-                    amount: newSourceAmount
+                    amount: newSourceAmount,
+                    creditLimit: newSourceType === 'CREDIT' ? newSourceCreditLimit : undefined
                 });
                 setSources([response.data.source, ...sources]);
                 if (activeTab === "sources") {
@@ -948,6 +953,7 @@ export default function DashboardPage() {
             setNewSourceName("");
             setNewSourceType("BANK");
             setNewSourceAmount(0);
+            setNewSourceCreditLimit(0);
             setEditingSource(null);
             setSourceDialogOpen(false);
         } catch (error) {
@@ -2109,9 +2115,20 @@ export default function DashboardPage() {
                                                                         <p className="text-xs text-muted-foreground mb-1">
                                                                             {source.type}
                                                                         </p>
-                                                                        <p className="text-sm font-bold text-green-600 dark:text-green-400">
-                                                                            ₹{source.amount.toFixed(2)}
-                                                                        </p>
+                                                                        {source.type === 'CREDIT' && source.creditLimit ? (
+                                                                            <div className="space-y-1">
+                                                                                <p className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                                                                                    Outstanding: ₹{source.amount.toFixed(2)}
+                                                                                </p>
+                                                                                <p className="text-xs text-muted-foreground">
+                                                                                    Limit: ₹{source.creditLimit.toFixed(2)} • Available: ₹{(source.creditLimit - source.amount).toFixed(2)}
+                                                                                </p>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                                                                                ₹{source.amount.toFixed(2)}
+                                                                            </p>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                                 <Button
@@ -2272,7 +2289,11 @@ export default function DashboardPage() {
                                         ) : (
                                             sources.map((source) => (
                                                 <SelectItem key={source.id} value={source.id}>
-                                                    {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name} (₹{source.amount.toFixed(2)})
+                                                    {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name}
+                                                    {source.type === 'CREDIT' && source.creditLimit ?
+                                                        ` (₹${source.amount.toFixed(2)} / ₹${source.creditLimit.toFixed(2)})`
+                                                        : ` (₹${source.amount.toFixed(2)})`
+                                                    }
                                                 </SelectItem>
                                             ))
                                         )}
@@ -2586,7 +2607,7 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <Label htmlFor="source-amount">{newSourceType === 'CREDIT' ? 'Current Credit Limit' : 'Current Balance'}</Label>
+                            <Label htmlFor="source-amount">{newSourceType === 'CREDIT' ? 'Current Outstanding Amount' : 'Current Balance'}</Label>
                             <Input
                                 id="source-amount"
                                 type="number"
@@ -2605,8 +2626,33 @@ export default function DashboardPage() {
                                 }}
                                 className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
-                            <p className="text-xs text-muted-foreground">Enter the current balance in this source</p>
+                            <p className="text-xs text-muted-foreground">{newSourceType === 'CREDIT' ? 'Enter the current outstanding amount on this card' : 'Enter the current balance in this source'}</p>
                         </div>
+
+                        {newSourceType === 'CREDIT' && (
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="source-credit-limit">Total Credit Limit</Label>
+                                <Input
+                                    id="source-credit-limit"
+                                    type="number"
+                                    placeholder="0.00"
+                                    value={newSourceCreditLimit || ""}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (value === "") {
+                                            setNewSourceCreditLimit(0);
+                                        } else {
+                                            const numValue = Number(value);
+                                            if (!isNaN(numValue)) {
+                                                setNewSourceCreditLimit(numValue);
+                                            }
+                                        }
+                                    }}
+                                    className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <p className="text-xs text-muted-foreground">Enter the total credit limit for this card</p>
+                            </div>
+                        )}
                     </div>
                     <DialogFooter className="gap-2">
                         <Button onClick={closeEditSource} variant="outline" disabled={savingState !== null}>Cancel</Button>

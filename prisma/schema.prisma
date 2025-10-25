@@ -155,6 +155,7 @@ model Source {
   name         String
   type         SourceType
   amount       Float        @default(0)
+  creditLimit  Float?
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       String       @db.Uuid
   transactions Transaction[]
