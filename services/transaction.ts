@@ -127,32 +127,71 @@ export async function createTransaction(data: CreateTransactionData) {
     try {
         const { connections, ...transactionData } = data;
 
-        return await prisma.transaction.create({
-            data: {
-                ...transactionData,
-                splits: connections && connections.length > 0 ? {
-                    create: connections.map((conn) => ({
-                        ...(conn.isSelf ? { selfUserId: conn.id } : { connectionId: conn.id }),
-                        amount: conn.amount || null,
-                        percentage: conn.percentage || null
-                    }))
-                } : undefined
-            },
-            include: {
-                category: true,
-                source: true,
-                splits: {
-                    include: {
-                        connection: true,
-                        selfUser: {
-                            select: {
-                                id: true,
-                                name: true
+        const source = await prisma.source.findUnique({
+            where: { id: data.sourceId }
+        });
+
+        if (!source) {
+            throw new Error('Source not found');
+        }
+
+        let amountDelta = 0;
+
+        if (source.type === 'CREDIT') {
+            if (data.type === 'EXPENSE') {
+                amountDelta = data.amount;
+            } else if (data.type === 'INCOME') {
+                amountDelta = -data.amount;
+            }
+        } else {
+            if (data.type === 'INCOME') {
+                amountDelta = data.amount;
+            } else if (data.type === 'EXPENSE') {
+                amountDelta = -data.amount;
+            }
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            const transaction = await tx.transaction.create({
+                data: {
+                    ...transactionData,
+                    splits: connections && connections.length > 0 ? {
+                        create: connections.map((conn) => ({
+                            ...(conn.isSelf ? { selfUserId: conn.id } : { connectionId: conn.id }),
+                            amount: conn.amount || null,
+                            percentage: conn.percentage || null
+                        }))
+                    } : undefined
+                },
+                include: {
+                    category: true,
+                    source: true,
+                    splits: {
+                        include: {
+                            connection: true,
+                            selfUser: {
+                                select: {
+                                    id: true,
+                                    name: true
+                                }
                             }
                         }
                     }
                 }
+            });
+
+            if (amountDelta !== 0) {
+                await tx.source.update({
+                    where: { id: data.sourceId },
+                    data: {
+                        amount: {
+                            increment: amountDelta
+                        }
+                    }
+                });
             }
+
+            return transaction;
         });
     } catch (error) {
         console.error('Error in createTransaction:', error);
@@ -186,13 +225,98 @@ export async function getTransactionById(transactionId: string) {
     }
 }
 
-export async function deleteTransactionById(transactionId: string, userId: string) {
+export async function deleteTransactionById(transactionId: string, userId: string, moveToTrash: boolean = true) {
     try {
-        return await prisma.transaction.delete({
-            where: {
-                id: transactionId,
-                userId
+        const transaction = await prisma.transaction.findUnique({
+            where: { id: transactionId, userId },
+            include: {
+                source: true,
+                category: true,
+                splits: {
+                    include: {
+                        connection: true,
+                        selfUser: true
+                    }
+                }
             }
+        });
+
+        if (!transaction) {
+            throw new Error('Transaction not found');
+        }
+
+        let amountDelta = 0;
+
+        if (transaction.source.type === 'CREDIT') {
+            if (transaction.type === 'EXPENSE') {
+                amountDelta = -transaction.amount;
+            } else if (transaction.type === 'INCOME') {
+                amountDelta = transaction.amount;
+            }
+        } else {
+            if (transaction.type === 'INCOME') {
+                amountDelta = -transaction.amount;
+            } else if (transaction.type === 'EXPENSE') {
+                amountDelta = transaction.amount;
+            }
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            if (moveToTrash) {
+                await tx.trash.create({
+                    data: {
+                        type: 'TRANSACTION',
+                        data: {
+                            id: transaction.id,
+                            title: transaction.title,
+                            description: transaction.description,
+                            amount: transaction.amount,
+                            date: transaction.date,
+                            type: transaction.type,
+                            categoryId: transaction.categoryId,
+                            sourceId: transaction.sourceId,
+                            splitMethod: transaction.splitMethod,
+                            category: {
+                                title: transaction.category.title,
+                                emoji: transaction.category.emoji
+                            },
+                            source: {
+                                name: transaction.source.name,
+                                type: transaction.source.type
+                            },
+                            splits: transaction.splits.map(split => ({
+                                connectionId: split.connectionId,
+                                selfUserId: split.selfUserId,
+                                amount: split.amount,
+                                percentage: split.percentage,
+                                connectionName: split.connection?.name,
+                                selfUserName: split.selfUser?.name
+                            }))
+                        },
+                        userId
+                    }
+                });
+            }
+
+            const deleted = await tx.transaction.delete({
+                where: {
+                    id: transactionId,
+                    userId
+                }
+            });
+
+            if (amountDelta !== 0) {
+                await tx.source.update({
+                    where: { id: transaction.sourceId },
+                    data: {
+                        amount: {
+                            increment: amountDelta
+                        }
+                    }
+                });
+            }
+
+            return deleted;
         });
     } catch (error) {
         console.error('Error in deleteTransactionById:', error);
@@ -208,39 +332,118 @@ export async function updateTransaction(
     try {
         const { connections, ...updateData } = data;
 
-        return await prisma.transaction.update({
-            where: {
-                id: transactionId,
-                userId
-            },
-            data: {
-                ...updateData,
-                ...(connections !== undefined && {
+        const oldTransaction = await prisma.transaction.findUnique({
+            where: { id: transactionId, userId },
+            include: { source: true }
+        });
+
+        if (!oldTransaction) {
+            throw new Error('Transaction not found');
+        }
+
+        const oldSource = oldTransaction.source;
+        const newSourceId = data.sourceId || oldTransaction.sourceId;
+        const newType = data.type || oldTransaction.type;
+        const newAmount = data.amount !== undefined ? data.amount : oldTransaction.amount;
+
+        const newSource = newSourceId !== oldTransaction.sourceId
+            ? await prisma.source.findUnique({ where: { id: newSourceId } })
+            : oldSource;
+
+        if (!newSource) {
+            throw new Error('New source not found');
+        }
+
+        let oldSourceDelta = 0;
+        let newSourceDelta = 0;
+
+        if (oldSource.type === 'CREDIT') {
+            if (oldTransaction.type === 'EXPENSE') {
+                oldSourceDelta = -oldTransaction.amount;
+            } else if (oldTransaction.type === 'INCOME') {
+                oldSourceDelta = oldTransaction.amount;
+            }
+        } else {
+            if (oldTransaction.type === 'INCOME') {
+                oldSourceDelta = -oldTransaction.amount;
+            } else if (oldTransaction.type === 'EXPENSE') {
+                oldSourceDelta = oldTransaction.amount;
+            }
+        }
+
+        if (newSource.type === 'CREDIT') {
+            if (newType === 'EXPENSE') {
+                newSourceDelta = newAmount;
+            } else if (newType === 'INCOME') {
+                newSourceDelta = -newAmount;
+            }
+        } else {
+            if (newType === 'INCOME') {
+                newSourceDelta = newAmount;
+            } else if (newType === 'EXPENSE') {
+                newSourceDelta = -newAmount;
+            }
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            const transaction = await tx.transaction.update({
+                where: {
+                    id: transactionId,
+                    userId
+                },
+                data: {
+                    ...updateData,
+                    ...(connections !== undefined && {
+                        splits: {
+                            deleteMany: {},
+                            create: connections.map((conn) => ({
+                                ...(conn.isSelf ? { selfUserId: conn.id } : { connectionId: conn.id }),
+                                amount: conn.amount || null,
+                                percentage: conn.percentage || null
+                            }))
+                        }
+                    })
+                },
+                include: {
+                    category: true,
+                    source: true,
                     splits: {
-                        deleteMany: {},
-                        create: connections.map((conn) => ({
-                            ...(conn.isSelf ? { selfUserId: conn.id } : { connectionId: conn.id }),
-                            amount: conn.amount || null,
-                            percentage: conn.percentage || null
-                        }))
-                    }
-                })
-            },
-            include: {
-                category: true,
-                source: true,
-                splits: {
-                    include: {
-                        connection: true,
-                        selfUser: {
-                            select: {
-                                id: true,
-                                name: true
+                        include: {
+                            connection: true,
+                            selfUser: {
+                                select: {
+                                    id: true,
+                                    name: true
+                                }
                             }
                         }
                     }
                 }
+            });
+
+            if (oldSourceDelta !== 0) {
+                await tx.source.update({
+                    where: { id: oldTransaction.sourceId },
+                    data: {
+                        amount: {
+                            increment: oldSourceDelta
+                        }
+                    }
+                });
             }
+
+            if (newSourceDelta !== 0) {
+                await tx.source.update({
+                    where: { id: newSourceId },
+                    data: {
+                        amount: {
+                            increment: newSourceDelta
+                        }
+                    }
+                });
+            }
+
+            return transaction;
         });
     } catch (error) {
         console.error('Error in updateTransaction:', error);

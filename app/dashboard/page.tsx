@@ -25,7 +25,7 @@ import {
 import { Connection, TransactionType, SplitMethod, Category, Source, SourceType, Transaction } from "@/types/transaction";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Search, Filter, X, Calendar, ArrowUpDown, TrendingUp, TrendingDown, ArrowRightLeft, RefreshCw, Edit } from "lucide-react";
+import { Loader2, Plus, Search, Filter, X, Calendar, ArrowUpDown, TrendingUp, TrendingDown, ArrowRightLeft, RefreshCw, Edit, Trash2 } from "lucide-react";
 import axios from "axios";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -52,6 +52,7 @@ export default function DashboardPage() {
     const [newSourceName, setNewSourceName] = useState<string>("");
     const [newSourceType, setNewSourceType] = useState<SourceType>("BANK");
     const [newSourceAmount, setNewSourceAmount] = useState<number>(0);
+    const [newSourceCreditLimit, setNewSourceCreditLimit] = useState<number>(0);
     const [editingSource, setEditingSource] = useState<Source | null>(null);
 
     const [transactionAmount, setTransactionAmount] = useState<number | null>(null);
@@ -63,6 +64,7 @@ export default function DashboardPage() {
     const [transactionSource, setTransactionSource] = useState<string>("");
     const [transactionSplitted, setTransactionSplitted] = useState<boolean>(false);
     const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
+    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
     const [savingState, setSavingState] = useState<string | null>(null);
 
@@ -770,6 +772,7 @@ export default function DashboardPage() {
         setNewSourceName(source.name);
         setNewSourceType(source.type);
         setNewSourceAmount(source.amount);
+        setNewSourceCreditLimit(source.creditLimit || 0);
         setSourceDialogOpen(true);
     };
 
@@ -778,6 +781,7 @@ export default function DashboardPage() {
         setNewSourceName("");
         setNewSourceType("BANK");
         setNewSourceAmount(0);
+        setNewSourceCreditLimit(0);
         setSourceDialogOpen(false);
     };
 
@@ -794,6 +798,25 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Error deleting source:', error);
             toast.error('Failed to delete source');
+        }
+    };
+
+    const handleDeleteTransaction = async (transactionId: string) => {
+        if (!confirm('Are you sure you want to move this transaction to trash? You can restore it later.')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/transaction?id=${transactionId}`);
+            setTransactions(transactions.filter((t: Transaction) => t.id !== transactionId));
+            await loadSources();
+            if (activeTab === "analytics") {
+                await loadAnalyticsData();
+            }
+            toast.success('Transaction moved to trash');
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+            toast.error('Failed to delete transaction');
         }
     };
 
@@ -922,7 +945,8 @@ export default function DashboardPage() {
                     id: editingSource.id,
                     name: newSourceName,
                     type: newSourceType,
-                    amount: newSourceAmount
+                    amount: newSourceAmount,
+                    creditLimit: newSourceType === 'CREDIT' ? newSourceCreditLimit : undefined
                 });
                 setSources(sources.map(src =>
                     src.id === editingSource.id ? response.data.source : src
@@ -935,7 +959,8 @@ export default function DashboardPage() {
                 const response = await axios.post('/api/source', {
                     name: newSourceName,
                     type: newSourceType,
-                    amount: newSourceAmount
+                    amount: newSourceAmount,
+                    creditLimit: newSourceType === 'CREDIT' ? newSourceCreditLimit : undefined
                 });
                 setSources([response.data.source, ...sources]);
                 if (activeTab === "sources") {
@@ -947,6 +972,7 @@ export default function DashboardPage() {
             setNewSourceName("");
             setNewSourceType("BANK");
             setNewSourceAmount(0);
+            setNewSourceCreditLimit(0);
             setEditingSource(null);
             setSourceDialogOpen(false);
         } catch (error) {
@@ -960,6 +986,58 @@ export default function DashboardPage() {
     const closeTransactionDialog = () => {
         setTransactionDialogOpen(false);
     }
+
+    const openEditTransaction = (transaction: Transaction) => {
+        setEditingTransaction(transaction);
+        setTransactionTitle(transaction.title);
+        setTransactionDescription(transaction.description || "");
+        setTransactionAmount(transaction.amount);
+        setTransactionDate(new Date(transaction.date));
+        setTransactionType(transaction.type);
+        setTransactionCategory(transaction.categoryId);
+        setTransactionSource(transaction.sourceId);
+        setTransactionSplitted(Boolean(transaction.splits && transaction.splits.length > 0));
+        setSplitMethod(transaction.splitMethod || "equal");
+
+        if (transaction.splits && transaction.splits.length > 0) {
+            setAvailableConnections(availableConnections.map(conn => {
+                const split = transaction.splits?.find(s =>
+                    s.connectionId === conn.id || s.selfUserId === conn.id
+                );
+                if (split) {
+                    return {
+                        ...conn,
+                        selected: true,
+                        amount: split.amount || 0,
+                        percentage: split.percentage || 0
+                    };
+                }
+                return { ...conn, selected: false, amount: 0, percentage: 0 };
+            }));
+        }
+
+        setTransactionDialogOpen(true);
+    };
+
+    const resetTransactionForm = () => {
+        setEditingTransaction(null);
+        setTransactionTitle("");
+        setTransactionDescription("");
+        setTransactionAmount(null);
+        setTransactionDate(new Date());
+        setTransactionType("EXPENSE");
+        setTransactionCategory("");
+        setTransactionSource("");
+        setTransactionSplitted(false);
+        setSplitMethod("equal");
+        setAvailableConnections(availableConnections.map(conn => ({
+            ...conn,
+            selected: false,
+            amount: 0,
+            percentage: 0
+        })));
+        setTransactionDialogOpen(false);
+    };
 
     const toggleConnectionSelection = (id: string) => {
         setAvailableConnections(availableConnections.map(conn =>
@@ -999,17 +1077,19 @@ export default function DashboardPage() {
         return selected.reduce((total, conn) => total + (conn.amount || 0), 0);
     };
 
-    const addTransaction = async () => {
+    const saveTransaction = async () => {
         try {
             if (!transactionTitle || !transactionAmount || !transactionSource || !transactionCategory) {
                 toast.error('Please fill required fields');
                 return;
             }
-            setSavingState('add-transaction');
+
+            const actionType = editingTransaction ? 'update-transaction' : 'add-transaction';
+            setSavingState(actionType);
 
             const selectedForSplit = getSelectedConnections();
 
-            const response = await axios.post('/api/transaction', {
+            const payload = {
                 transactionAmount,
                 transactionDate,
                 transactionDescription,
@@ -1020,31 +1100,31 @@ export default function DashboardPage() {
                 transactionSplitted,
                 splitMethod,
                 connections: selectedForSplit,
-            })
+            };
+
+            let response: { data: { transaction: Transaction; message: string } };
+            if (editingTransaction) {
+                response = await axios.put('/api/transaction', {
+                    ...payload,
+                    id: editingTransaction.id
+                });
+                setTransactions(transactions.map(txn =>
+                    txn.id === editingTransaction.id ? response.data.transaction : txn
+                ));
+            } else {
+                response = await axios.post('/api/transaction', payload);
+            }
 
             toast.success(response.data.message);
-            closeTransactionDialog();
-            setTransactionTitle("");
-            setTransactionDescription("");
-            setTransactionAmount(null);
-            setTransactionDate(new Date());
-            setTransactionCategory("");
-            setTransactionSource("");
-            setTransactionSplitted(false);
-            setAvailableConnections(availableConnections.map(conn => ({
-                ...conn,
-                selected: false,
-                amount: 0,
-                percentage: 0
-            })));
+            resetTransactionForm();
 
             if (activeTab === "transactions") {
                 resetAndLoadTransactions();
             }
 
         } catch (error) {
-            console.error('Error adding transaction\n', error)
-            toast.error('Error adding transaction')
+            console.error('Error saving transaction\n', error)
+            toast.error('Error saving transaction')
         } finally {
             setSavingState(null);
         }
@@ -1064,7 +1144,10 @@ export default function DashboardPage() {
                         ))}
                     </div>
                     <div className="flex gap-2">
-                        <Button onClick={() => setTransactionDialogOpen(true)} size="sm" disabled={savingState !== null}>
+                        <Button onClick={() => {
+                            resetTransactionForm();
+                            setTransactionDialogOpen(true)
+                        }} size="sm" disabled={savingState !== null}>
                             Add Transaction
                         </Button>
                         <Button onClick={() => setCategoryDialogOpen(true)} variant="outline" size="sm" disabled={savingState !== null}>
@@ -1366,14 +1449,32 @@ export default function DashboardPage() {
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="text-right">
-                                                                <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
-                                                                    transaction.type === 'EXPENSE' ? 'text-red-600 dark:text-red-400' :
-                                                                        'text-blue-600 dark:text-blue-400'
-                                                                    }`}>
-                                                                    {transaction.type === 'INCOME' ? '+' : transaction.type === 'EXPENSE' ? '-' : ''}
-                                                                    ₹{transaction.amount.toFixed(2)}
+                                                            <div className="flex items-start gap-2">
+                                                                <div className="text-right">
+                                                                    <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
+                                                                        transaction.type === 'EXPENSE' ? 'text-red-600 dark:text-red-400' :
+                                                                            'text-blue-600 dark:text-blue-400'
+                                                                        }`}>
+                                                                        {transaction.type === 'INCOME' ? '+' : transaction.type === 'EXPENSE' ? '-' : ''}
+                                                                        ₹{transaction.amount.toFixed(2)}
+                                                                    </div>
                                                                 </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openEditTransaction(transaction)}
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleDeleteTransaction(transaction.id)}
+                                                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
                                                             </div>
                                                         </div>
                                                     </CardContent>
@@ -2041,9 +2142,20 @@ export default function DashboardPage() {
                                                                         <p className="text-xs text-muted-foreground mb-1">
                                                                             {source.type}
                                                                         </p>
-                                                                        <p className="text-sm font-bold text-green-600 dark:text-green-400">
-                                                                            ₹{source.amount.toFixed(2)}
-                                                                        </p>
+                                                                        {source.type === 'CREDIT' && source.creditLimit ? (
+                                                                            <div className="space-y-1">
+                                                                                <p className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                                                                                    Outstanding: ₹{source.amount.toFixed(2)}
+                                                                                </p>
+                                                                                <p className="text-xs text-muted-foreground">
+                                                                                    ₹{(source.creditLimit - source.amount).toFixed(2)} / ₹{source.creditLimit.toFixed(2)}
+                                                                                </p>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                                                                                ₹{source.amount.toFixed(2)}
+                                                                            </p>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                                 <Button
@@ -2101,7 +2213,7 @@ export default function DashboardPage() {
             <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
                 <DialogContent className="min-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Add Transaction</DialogTitle>
+                        <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
                         <DialogDescription>
                             Track your income, expenses, and transfers with detailed information.
                         </DialogDescription>
@@ -2204,7 +2316,11 @@ export default function DashboardPage() {
                                         ) : (
                                             sources.map((source) => (
                                                 <SelectItem key={source.id} value={source.id}>
-                                                    {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name} (₹{source.amount.toFixed(2)})
+                                                    {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name}
+                                                    {source.type === 'CREDIT' && source.creditLimit ?
+                                                        ` (₹${source.amount.toFixed(2)} / ₹${source.creditLimit.toFixed(2)})`
+                                                        : ` (₹${source.amount.toFixed(2)})`
+                                                    }
                                                 </SelectItem>
                                             ))
                                         )}
@@ -2380,9 +2496,9 @@ export default function DashboardPage() {
 
                     </div>
                     <DialogFooter className="gap-2">
-                        <Button onClick={closeTransactionDialog} variant="outline" disabled={savingState !== null}>Cancel</Button>
-                        <Button onClick={addTransaction} className="w-[135px]" disabled={savingState !== null}>
-                            {savingState === 'add-transaction' ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving</> : "Add Transaction"}
+                        <Button onClick={resetTransactionForm} variant="outline" disabled={savingState !== null}>Cancel</Button>
+                        <Button onClick={saveTransaction} className={`w-[${editingTransaction ? '160px' : '135px'}]`} disabled={savingState !== null}>
+                            {(savingState === 'add-transaction' || savingState === 'update-transaction') ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving</> : editingTransaction ? "Update Transaction" : "Add Transaction"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -2518,7 +2634,7 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <Label htmlFor="source-amount">{newSourceType === 'CREDIT' ? 'Current Credit Limit' : 'Current Balance'}</Label>
+                            <Label htmlFor="source-amount">{newSourceType === 'CREDIT' ? 'Current Outstanding Amount' : 'Current Balance'}</Label>
                             <Input
                                 id="source-amount"
                                 type="number"
@@ -2537,8 +2653,33 @@ export default function DashboardPage() {
                                 }}
                                 className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
-                            <p className="text-xs text-muted-foreground">Enter the current balance in this source</p>
+                            <p className="text-xs text-muted-foreground">{newSourceType === 'CREDIT' ? 'Enter the current outstanding amount on this card' : 'Enter the current balance in this source'}</p>
                         </div>
+
+                        {newSourceType === 'CREDIT' && (
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="source-credit-limit">Total Credit Limit</Label>
+                                <Input
+                                    id="source-credit-limit"
+                                    type="number"
+                                    placeholder="0.00"
+                                    value={newSourceCreditLimit || ""}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (value === "") {
+                                            setNewSourceCreditLimit(0);
+                                        } else {
+                                            const numValue = Number(value);
+                                            if (!isNaN(numValue)) {
+                                                setNewSourceCreditLimit(numValue);
+                                            }
+                                        }
+                                    }}
+                                    className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <p className="text-xs text-muted-foreground">Enter the total credit limit for this card</p>
+                            </div>
+                        )}
                     </div>
                     <DialogFooter className="gap-2">
                         <Button onClick={closeEditSource} variant="outline" disabled={savingState !== null}>Cancel</Button>

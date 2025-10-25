@@ -7,10 +7,15 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import { Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export const Navbar = ({ title }: { title: string }) => {
     const { data: session } = useSession();
+    const router = useRouter();
+
     return (
         <div className="flex justify-between items-center py-4 select-none">
             <h1 className="text-3xl font-bold">{title}</h1>
@@ -25,8 +30,11 @@ export const Navbar = ({ title }: { title: string }) => {
                         </Avatar>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                        {/* <DropdownMenuLabel>My Account</DropdownMenuLabel> */}
-                        {/* <DropdownMenuSeparator /> */}
+                        <DropdownMenuItem onClick={() => router.push('/trash')}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Trash
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/signin" })}>Sign Out</DropdownMenuItem>
 
                     </DropdownMenuContent>
