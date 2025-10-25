@@ -4,6 +4,26 @@ import { authOptions } from "@/lib/auth";
 import { getTrashItemsByUserId, deleteTrashItem, emptyTrash, getTrashItemById } from "@/services/trash";
 import { createTransaction } from "@/services/transaction";
 
+type TransactionData = {
+    id: string;
+    title: string;
+    description?: string;
+    amount: number;
+    date: string;
+    type: "INCOME" | "EXPENSE" | "TRANSFER";
+    categoryId: string;
+    sourceId: string;
+    splitMethod?: "equal" | "percentage" | "amount";
+    splits?: Array<{
+        connectionId?: string;
+        selfUserId?: string;
+        amount?: number;
+        percentage?: number;
+        connectionName?: string;
+        selfUserName?: string;
+    }>;
+};
+
 export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -66,7 +86,7 @@ export async function POST(req: NextRequest) {
             }
 
             if (trashItem.type === 'TRANSACTION') {
-                const transactionData = trashItem.data as any;
+                const transactionData = trashItem.data as TransactionData;
                 await createTransaction({
                     title: transactionData.title,
                     description: transactionData.description,
@@ -77,8 +97,8 @@ export async function POST(req: NextRequest) {
                     sourceId: transactionData.sourceId,
                     splitMethod: transactionData.splitMethod,
                     userId: session.user.id,
-                    connections: transactionData.splits?.map((split: any) => ({
-                        id: split.connectionId || split.selfUserId,
+                    connections: transactionData.splits?.map((split) => ({
+                        id: split.connectionId || split.selfUserId || '',
                         amount: split.amount,
                         percentage: split.percentage,
                         isSelf: !!split.selfUserId
