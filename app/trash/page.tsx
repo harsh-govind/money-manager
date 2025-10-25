@@ -1,0 +1,190 @@
+"use client";
+import { useState, useEffect } from "react";
+import { Navbar } from "@/components/ui/custom/Navbar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, Trash2, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
+import axios from "axios";
+import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+
+export default function TrashPage() {
+    const router = useRouter();
+    const [trashItems, setTrashItems] = useState<Array<any>>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+
+    useEffect(() => {
+        loadTrashItems();
+    }, []);
+
+    const loadTrashItems = async () => {
+        setLoading(true);
+        try {
+            const response = await axios.get('/api/trash?type=TRANSACTION');
+            setTrashItems(response.data.trashItems);
+        } catch (error) {
+            console.error('Error loading trash items:', error);
+            toast.error('Failed to load trash items');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRestore = async (trashId: string) => {
+        try {
+            await axios.post('/api/trash', { id: trashId, action: 'restore' });
+            setTrashItems(trashItems.filter(item => item.id !== trashId));
+            toast.success('Transaction restored successfully');
+        } catch (error) {
+            console.error('Error restoring item:', error);
+            toast.error('Failed to restore transaction');
+        }
+    };
+
+    const handlePermanentDelete = async (trashId: string) => {
+        if (!confirm('Are you sure you want to permanently delete this item? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/trash?id=${trashId}`);
+            setTrashItems(trashItems.filter(item => item.id !== trashId));
+            toast.success('Item permanently deleted');
+        } catch (error) {
+            console.error('Error deleting item:', error);
+            toast.error('Failed to delete item');
+        }
+    };
+
+    const handleEmptyTrash = async () => {
+        if (!confirm('Are you sure you want to permanently delete all items in the trash? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            await axios.post('/api/trash', { action: 'empty', id: '' });
+            setTrashItems([]);
+            toast.success('Trash emptied successfully');
+        } catch (error) {
+            console.error('Error emptying trash:', error);
+            toast.error('Failed to empty trash');
+        }
+    };
+
+    return (
+        <div className="flex flex-col gap-4">
+            <Navbar title="Trash" />
+
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-xl font-semibold">Deleted Items</h2>
+                    <p className="text-sm text-muted-foreground">
+                        Restore or permanently delete items from trash
+                    </p>
+                </div>
+                <div className="flex gap-2">
+                    <Button onClick={() => router.push('/dashboard')} variant="outline">
+                        Back to Dashboard
+                    </Button>
+                    {trashItems.length > 0 && (
+                        <Button onClick={handleEmptyTrash} variant="destructive">
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Empty Trash
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            <div className="border rounded-md p-4 min-h-[calc(100vh-200px)]">
+                {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                    </div>
+                ) : trashItems.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                        <Trash2 className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                        <h3 className="text-lg font-semibold mb-2">Trash is empty</h3>
+                        <p className="text-sm">Deleted items will appear here</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {trashItems.map((item) => {
+                            const data = item.data as any;
+                            return (
+                                <Card key={item.id} className="hover:shadow-md transition-shadow">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex items-start gap-3 flex-1">
+                                                <div className="text-4xl bg-muted/50 p-2 rounded-lg">
+                                                    {data.category?.emoji}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-semibold text-lg mb-1 truncate">
+                                                        {data.title}
+                                                    </h3>
+                                                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-2">
+                                                        <span className="flex items-center gap-1">
+                                                            {data.category?.emoji} {data.category?.title}
+                                                        </span>
+                                                        <span>•</span>
+                                                        <span>
+                                                            {data.source?.type === 'BANK' ? '🏦' :
+                                                                data.source?.type === 'CASH' ? '💵' : '💳'} {data.source?.name}
+                                                        </span>
+                                                        <span>•</span>
+                                                        <span className={`font-semibold ${data.type === 'INCOME' ? 'text-green-600' :
+                                                                data.type === 'EXPENSE' ? 'text-red-600' :
+                                                                    'text-blue-600'
+                                                            }`}>
+                                                            {data.type === 'INCOME' ? '+' : data.type === 'EXPENSE' ? '-' : ''}
+                                                            ₹{data.amount?.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                    {data.description && (
+                                                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                                                            {data.description}
+                                                        </p>
+                                                    )}
+                                                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                                        <span>
+                                                            Transaction: {format(new Date(data.date), 'MMM dd, yyyy HH:mm')}
+                                                        </span>
+                                                        <span>•</span>
+                                                        <span>
+                                                            Deleted: {format(new Date(item.deletedAt), 'MMM dd, yyyy HH:mm')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleRestore(item.id)}
+                                                    className="gap-2"
+                                                >
+                                                    <RotateCcw className="h-4 w-4" />
+                                                    Restore
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handlePermanentDelete(item.id)}
+                                                    className="text-destructive hover:text-destructive"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+

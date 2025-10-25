@@ -802,7 +802,7 @@ export default function DashboardPage() {
     };
 
     const handleDeleteTransaction = async (transactionId: string) => {
-        if (!confirm('Are you sure you want to delete this transaction? This will also update your source balance.')) {
+        if (!confirm('Are you sure you want to move this transaction to trash? You can restore it later.')) {
             return;
         }
 
@@ -813,7 +813,7 @@ export default function DashboardPage() {
             if (activeTab === "analytics") {
                 await loadAnalyticsData();
             }
-            toast.success('Transaction deleted successfully');
+            toast.success('Transaction moved to trash');
         } catch (error) {
             console.error('Error deleting transaction:', error);
             toast.error('Failed to delete transaction');

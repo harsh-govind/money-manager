@@ -225,11 +225,20 @@ export async function getTransactionById(transactionId: string) {
     }
 }
 
-export async function deleteTransactionById(transactionId: string, userId: string) {
+export async function deleteTransactionById(transactionId: string, userId: string, moveToTrash: boolean = true) {
     try {
         const transaction = await prisma.transaction.findUnique({
             where: { id: transactionId, userId },
-            include: { source: true }
+            include: {
+                source: true,
+                category: true,
+                splits: {
+                    include: {
+                        connection: true,
+                        selfUser: true
+                    }
+                }
+            }
         });
 
         if (!transaction) {
@@ -253,6 +262,42 @@ export async function deleteTransactionById(transactionId: string, userId: strin
         }
 
         return await prisma.$transaction(async (tx) => {
+            if (moveToTrash) {
+                await tx.trash.create({
+                    data: {
+                        type: 'TRANSACTION',
+                        data: {
+                            id: transaction.id,
+                            title: transaction.title,
+                            description: transaction.description,
+                            amount: transaction.amount,
+                            date: transaction.date,
+                            type: transaction.type,
+                            categoryId: transaction.categoryId,
+                            sourceId: transaction.sourceId,
+                            splitMethod: transaction.splitMethod,
+                            category: {
+                                title: transaction.category.title,
+                                emoji: transaction.category.emoji
+                            },
+                            source: {
+                                name: transaction.source.name,
+                                type: transaction.source.type
+                            },
+                            splits: transaction.splits.map(split => ({
+                                connectionId: split.connectionId,
+                                selfUserId: split.selfUserId,
+                                amount: split.amount,
+                                percentage: split.percentage,
+                                connectionName: split.connection?.name,
+                                selfUserName: split.selfUser?.name
+                            }))
+                        },
+                        userId
+                    }
+                });
+            }
+
             const deleted = await tx.transaction.delete({
                 where: {
                     id: transactionId,
