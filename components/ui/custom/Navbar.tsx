@@ -17,7 +17,7 @@ export const Navbar = ({ title }: { title: string }) => {
     const router = useRouter();
 
     return (
-        <div className="flex justify-between items-center py-4 select-none">
+        <div className="flex justify-between items-center py-4 select-none px-2 md:px-0">
             <h1 className="text-3xl font-bold">{title}</h1>
             <div className="flex items-center gap-2">
                 <ThemeToggle />
