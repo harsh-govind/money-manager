@@ -1152,8 +1152,7 @@ export default function DashboardPage() {
                     <div
                         className="flex gap-2 items-center md:overflow-hidden overflow-x-auto"
                         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                        // Hide scrollbar for Webkit browsers
-                        // @ts-ignore
+                        // @ts-expect-error Hide scrollbar for Webkit browsers
                         css={{
                             '&::-webkit-scrollbar': {
                                 display: 'none'
@@ -1168,8 +1167,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex gap-2 md:overflow-hidden overflow-x-auto"
                         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                        // Hide scrollbar for Webkit browsers
-                        // @ts-ignore
+                        // @ts-expect-error Hide scrollbar for Webkit browsers
                         css={{
                             '&::-webkit-scrollbar': {
                                 display: 'none'
