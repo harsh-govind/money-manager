@@ -148,6 +148,8 @@ export default function DashboardPage() {
     } | null>(null);
     const [loadingAnalytics, setLoadingAnalytics] = useState<boolean>(false);
 
+    const [isMobile, setIsMobile] = useState<boolean>(false);
+
     const observerTarget = useRef<HTMLDivElement>(null);
     const categoriesObserverTarget = useRef<HTMLDivElement>(null);
     const connectionsObserverTarget = useRef<HTMLDivElement>(null);
@@ -244,6 +246,17 @@ export default function DashboardPage() {
             loadAnalyticsData();
         }
     }, [activeTab, analyticsTimeRange]);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -1133,17 +1146,34 @@ export default function DashboardPage() {
     return (
         <>
             <div className="flex flex-col gap-4">
-                <Navbar title="Dashboard" />
+                <Navbar title="Money Manager" />
 
-                <div className=" flex gap-4 justify-between">
-                    <div className="flex gap-2 items-center">
+                <div className="flex gap-4 justify-between md:flex-row flex-col-reverse md:px-0 px-2">
+                    <div
+                        className="flex gap-2 items-center md:overflow-hidden overflow-x-auto"
+                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                        // @ts-expect-error Hide scrollbar for Webkit browsers
+                        css={{
+                            '&::-webkit-scrollbar': {
+                                display: 'none'
+                            }
+                        }}
+                    >
                         {tabs.map((tab) => (
                             <div key={tab.value} onClick={() => setActiveTab(tab.value)} className={`border px-2 py-1 rounded-md cursor-pointer hover:bg-muted ${activeTab === tab.value ? "bg-muted" : ""}`}>
                                 <span className={`${activeTab === tab.value ? "font-bold" : ""} ${activeTab === tab.value ? "text-foreground" : ""}`}>{tab.label}</span>
                             </div>
                         ))}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 md:overflow-hidden overflow-x-auto"
+                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                        // @ts-expect-error Hide scrollbar for Webkit browsers
+                        css={{
+                            '&::-webkit-scrollbar': {
+                                display: 'none'
+                            }
+                        }}
+                    >
                         <Button onClick={() => {
                             resetTransactionForm();
                             setTransactionDialogOpen(true)
@@ -1163,19 +1193,19 @@ export default function DashboardPage() {
                 </div>
 
 
-                <div className="border h-[calc(100vh-160px)] rounded-md overflow-hidden flex flex-col">
+                <div className="border-0 md:border md:h-[calc(100vh-160px)] h-[calc(100vh-190px)] rounded-md overflow-hidden flex flex-col md:mx-0 mx-2">
                     {
                         activeTab === "transactions" && (
                             <div className="flex flex-col h-full">
-                                <div className="p-4 border-b space-y-3 bg-muted/20">
-                                    <div className="flex gap-2 items-center">
+                                <div className="p-0 md:p-4 border-b-0 md:border-b space-y-3 bg-muted/20 md:mb-0 mb-2">
+                                    <div className="flex gap-1.5 md:gap-2 items-center">
                                         <div className="relative flex-1">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <Search className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
                                             <Input
                                                 placeholder="Search by title or description..."
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="pl-10"
+                                                className="pl-8 md:pl-10 text-sm md:text-base h-9 md:h-10"
                                             />
                                         </div>
                                         <Button
@@ -1183,19 +1213,20 @@ export default function DashboardPage() {
                                             size="sm"
                                             onClick={handleRefresh}
                                             disabled={isRefreshing || loadingTransactions}
+                                            className="h-9 w-9 md:h-10 md:w-10 p-0"
                                         >
-                                            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                            <RefreshCw className={`h-3.5 w-3.5 md:h-4 md:w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                                         </Button>
                                         <Button
                                             variant={showFilters ? "default" : "outline"}
                                             size="sm"
                                             onClick={() => setShowFilters(!showFilters)}
-                                            className="relative"
+                                            className="relative h-9 md:h-10 px-2 md:px-4"
                                         >
-                                            <Filter className="h-4 w-4 mr-2" />
-                                            Filters
+                                            <Filter className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
+                                            <span className="hidden md:inline">Filters</span>
                                             {getActiveFilterCount() > 0 && (
-                                                <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center" variant="secondary">
+                                                <Badge className="ml-1 md:ml-2 h-4 w-4 md:h-5 md:w-5 p-0 flex items-center justify-center text-[10px] md:text-xs" variant="secondary">
                                                     {getActiveFilterCount()}
                                                 </Badge>
                                             )}
@@ -1205,20 +1236,21 @@ export default function DashboardPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={clearAllFilters}
+                                                className="h-9 md:h-10 px-2 md:px-4 hidden sm:flex"
                                             >
-                                                <X className="h-4 w-4 mr-2" />
-                                                Clear
+                                                <X className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
+                                                <span className="hidden md:inline">Clear</span>
                                             </Button>
                                         )}
                                     </div>
 
                                     {showFilters && (
                                         <div className="space-y-3 pt-2 border-t">
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 <div className="space-y-2">
-                                                    <Label className="text-sm font-medium">Date Range</Label>
+                                                    <Label className="text-xs md:text-sm font-medium">Date Range</Label>
                                                     <Select value={dateFilter} onValueChange={setDateFilter}>
-                                                        <SelectTrigger>
+                                                        <SelectTrigger className="h-9 md:h-10 text-sm">
                                                             <SelectValue placeholder="All time" />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -1232,60 +1264,60 @@ export default function DashboardPage() {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <Label className="text-sm font-medium">Transaction Type</Label>
-                                                    <div className="flex gap-2">
+                                                    <Label className="text-xs md:text-sm font-medium">Transaction Type</Label>
+                                                    <div className="flex gap-1.5 md:gap-2">
                                                         <Button
                                                             variant={selectedTypes.includes("INCOME") ? "default" : "outline"}
                                                             size="sm"
                                                             onClick={() => toggleType("INCOME")}
-                                                            className="flex-1"
+                                                            className="flex-1 h-9 md:h-10 px-1 md:px-3"
                                                         >
-                                                            <TrendingUp className="h-4 w-4 mr-1" />
-                                                            Income
+                                                            <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-1" />
+                                                            <span className="text-xs md:text-sm">Income</span>
                                                         </Button>
                                                         <Button
                                                             variant={selectedTypes.includes("EXPENSE") ? "default" : "outline"}
                                                             size="sm"
                                                             onClick={() => toggleType("EXPENSE")}
-                                                            className="flex-1"
+                                                            className="flex-1 h-9 md:h-10 px-1 md:px-3"
                                                         >
-                                                            <TrendingDown className="h-4 w-4 mr-1" />
-                                                            Expense
+                                                            <TrendingDown className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-1" />
+                                                            <span className="text-xs md:text-sm">Expense</span>
                                                         </Button>
                                                         <Button
                                                             variant={selectedTypes.includes("TRANSFER") ? "default" : "outline"}
                                                             size="sm"
                                                             onClick={() => toggleType("TRANSFER")}
-                                                            className="flex-1"
+                                                            className="flex-1 h-9 md:h-10 px-1 md:px-3"
                                                         >
-                                                            <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                                            Transfer
+                                                            <ArrowRightLeft className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-1" />
+                                                            <span className="text-xs md:text-sm">Transfer</span>
                                                         </Button>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {dateFilter === "custom" && (
-                                                <div className="grid grid-cols-2 gap-3">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                     <div className="space-y-2">
-                                                        <Label className="text-sm font-medium">From Date</Label>
+                                                        <Label className="text-xs md:text-sm font-medium">From Date</Label>
                                                         <DateTimePicker date={customDateFrom} setDate={setCustomDateFrom} />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <Label className="text-sm font-medium">To Date</Label>
+                                                        <Label className="text-xs md:text-sm font-medium">To Date</Label>
                                                         <DateTimePicker date={customDateTo} setDate={setCustomDateTo} />
                                                     </div>
                                                 </div>
                                             )}
 
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                                 <div className="space-y-2">
-                                                    <Label className="text-sm font-medium">Categories</Label>
+                                                    <Label className="text-xs md:text-sm font-medium">Categories</Label>
                                                     <Popover>
                                                         <PopoverTrigger asChild>
-                                                            <Button variant="outline" className="w-full justify-between">
+                                                            <Button variant="outline" className="w-full justify-between h-9 md:h-10 text-sm">
                                                                 {selectedCategories.length === 0 ? "All" : `${selectedCategories.length} selected`}
-                                                                <ArrowUpDown className="h-4 w-4 ml-2" />
+                                                                <ArrowUpDown className="h-3.5 w-3.5 md:h-4 md:w-4 ml-2" />
                                                             </Button>
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-[200px] p-2" align="start">
@@ -1297,7 +1329,7 @@ export default function DashboardPage() {
                                                                         onClick={() => toggleCategory(category.id)}
                                                                     >
                                                                         <Checkbox checked={selectedCategories.includes(category.id)} />
-                                                                        <span className="text-sm">{category.emoji} {category.title}</span>
+                                                                        <span className="text-xs md:text-sm">{category.emoji} {category.title}</span>
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -1306,12 +1338,12 @@ export default function DashboardPage() {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <Label className="text-sm font-medium">Sources</Label>
+                                                    <Label className="text-xs md:text-sm font-medium">Sources</Label>
                                                     <Popover>
                                                         <PopoverTrigger asChild>
-                                                            <Button variant="outline" className="w-full justify-between">
+                                                            <Button variant="outline" className="w-full justify-between h-9 md:h-10 text-sm">
                                                                 {selectedSources.length === 0 ? "All" : `${selectedSources.length} selected`}
-                                                                <ArrowUpDown className="h-4 w-4 ml-2" />
+                                                                <ArrowUpDown className="h-3.5 w-3.5 md:h-4 md:w-4 ml-2" />
                                                             </Button>
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-[200px] p-2" align="start">
@@ -1323,7 +1355,7 @@ export default function DashboardPage() {
                                                                         onClick={() => toggleSource(source.id)}
                                                                     >
                                                                         <Checkbox checked={selectedSources.includes(source.id)} />
-                                                                        <span className="text-sm">
+                                                                        <span className="text-xs md:text-sm">
                                                                             {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name}
                                                                         </span>
                                                                     </div>
@@ -1334,12 +1366,12 @@ export default function DashboardPage() {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <Label className="text-sm font-medium">Connections</Label>
+                                                    <Label className="text-xs md:text-sm font-medium">Connections</Label>
                                                     <Popover>
                                                         <PopoverTrigger asChild>
-                                                            <Button variant="outline" className="w-full justify-between">
+                                                            <Button variant="outline" className="w-full justify-between h-9 md:h-10 text-sm">
                                                                 {selectedConnections.length === 0 ? "All" : `${selectedConnections.length} selected`}
-                                                                <ArrowUpDown className="h-4 w-4 ml-2" />
+                                                                <ArrowUpDown className="h-3.5 w-3.5 md:h-4 md:w-4 ml-2" />
                                                             </Button>
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-[200px] p-2" align="start">
@@ -1351,7 +1383,7 @@ export default function DashboardPage() {
                                                                         onClick={() => toggleConnection(connection.id)}
                                                                     >
                                                                         <Checkbox checked={selectedConnections.includes(connection.id)} />
-                                                                        <span className="text-sm flex items-center gap-1">
+                                                                        <span className="text-xs md:text-sm flex items-center gap-1">
                                                                             {connection.isSelf && <span>👤</span>}
                                                                             {connection.name}
                                                                         </span>
@@ -1366,92 +1398,63 @@ export default function DashboardPage() {
                                     )}
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4">
+                                <div className="flex-1 overflow-y-auto p-0 md:p-4">
                                     {loadingTransactions && transactions.length === 0 ? (
-                                        <div className="space-y-3">
+                                        <div className={isMobile ? "space-y-2" : "space-y-3"}>
                                             {[...Array(6)].map((_, i) => (
                                                 <Card key={i}>
-                                                    <CardContent className="p-4">
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-3 flex-1">
-                                                                <Skeleton className="h-10 w-10 rounded-full" />
-                                                                <div className="space-y-2 flex-1">
-                                                                    <Skeleton className="h-4 w-[200px]" />
-                                                                    <Skeleton className="h-3 w-[150px]" />
+                                                    <CardContent className={isMobile ? "px-2.5 py-2" : "p-4"}>
+                                                        {isMobile ? (
+                                                            <div className="space-y-0.5">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <Skeleton className="h-4 w-[140px]" />
+                                                                    <Skeleton className="h-4 w-[60px]" />
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <Skeleton className="h-3 w-[80%]" />
+                                                                    <Skeleton className="h-6 w-6 rounded" />
                                                                 </div>
                                                             </div>
-                                                            <Skeleton className="h-6 w-[100px]" />
-                                                        </div>
+                                                        ) : (
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-3 flex-1">
+                                                                    <Skeleton className="h-10 w-10 rounded-full" />
+                                                                    <div className="space-y-2 flex-1">
+                                                                        <Skeleton className="h-4 w-[200px]" />
+                                                                        <Skeleton className="h-3 w-[150px]" />
+                                                                    </div>
+                                                                </div>
+                                                                <Skeleton className="h-6 w-[100px]" />
+                                                            </div>
+                                                        )}
                                                     </CardContent>
                                                 </Card>
                                             ))}
                                         </div>
                                     ) : transactions.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center h-full text-center">
-                                            <div className="text-6xl mb-4">📊</div>
-                                            <h3 className="text-lg font-semibold mb-2">No transactions found</h3>
-                                            <p className="text-sm text-muted-foreground mb-4">
+                                        <div className="flex flex-col items-center justify-center h-full text-center px-4">
+                                            <div className="text-5xl md:text-6xl mb-4">📊</div>
+                                            <h3 className="text-base md:text-lg font-semibold mb-2">No transactions found</h3>
+                                            <p className="text-xs md:text-sm text-muted-foreground mb-4 max-w-md">
                                                 {getActiveFilterCount() > 0
                                                     ? "Try adjusting your filters or search query"
                                                     : "Start tracking your finances by adding your first transaction"}
                                             </p>
-                                            <Button onClick={() => setTransactionDialogOpen(true)}>
-                                                <Plus className="h-4 w-4 mr-2" />
-                                                Add Transaction
+                                            <Button onClick={() => setTransactionDialogOpen(true)} className="h-9 md:h-10">
+                                                <Plus className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" />
+                                                <span className="text-sm">Add Transaction</span>
                                             </Button>
                                         </div>
                                     ) : (
-                                        <div className="space-y-3">
+                                        <div className={isMobile ? "space-y-2" : "space-y-3"}>
                                             {transactions.map((transaction) => (
                                                 <Card key={transaction.id} className="hover:shadow-md transition-shadow">
-                                                    <CardContent className="p-4">
-                                                        <div className="flex items-start justify-between gap-4">
-                                                            <div className="flex items-start gap-3 flex-1 min-w-0">
-                                                                <div className={`p-2 rounded-full ${transaction.type === 'INCOME' ? 'bg-green-100 dark:bg-green-900/20' :
-                                                                    transaction.type === 'EXPENSE' ? 'bg-red-100 dark:bg-red-900/20' :
-                                                                        'bg-blue-100 dark:bg-blue-900/20'
-                                                                    }`}>
-                                                                    {transaction.type === 'INCOME' ? (
-                                                                        <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                                                    ) : transaction.type === 'EXPENSE' ? (
-                                                                        <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
-                                                                    ) : (
-                                                                        <ArrowRightLeft className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                                                    )}
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <h3 className="font-semibold text-base truncate">{transaction.title}</h3>
-                                                                        <Badge variant="outline" className="text-xs">
-                                                                            {transaction.category.emoji} {transaction.category.title}
-                                                                        </Badge>
-                                                                    </div>
-                                                                    {transaction.description && (
-                                                                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                                                                            {transaction.description}
-                                                                        </p>
-                                                                    )}
-                                                                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                                                        <div className="flex items-center gap-1">
-                                                                            <Calendar className="h-3 w-3" />
-                                                                            {format(new Date(transaction.date), 'MMM dd, yyyy HH:mm')}
-                                                                        </div>
-                                                                        <div className="flex items-center gap-1">
-                                                                            {transaction.source.type === 'BANK' ? '🏦' :
-                                                                                transaction.source.type === 'CASH' ? '💵' : '💳'}
-                                                                            {transaction.source.name}
-                                                                        </div>
-                                                                        {transaction.splits && transaction.splits.length > 0 && (
-                                                                            <Badge variant="secondary" className="text-xs">
-                                                                                Split with {transaction.splits.map(s => s.selfUser ? (s.selfUser.name || "Myself") : s.connection?.name).filter(Boolean).join(', ')}
-                                                                            </Badge>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-start gap-2">
-                                                                <div className="text-right">
-                                                                    <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
+                                                    {isMobile ? (
+                                                        <CardContent>
+                                                            <div className="space-y-0.5">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <h3 className="font-semibold truncate text-lg flex-1">{transaction.title}</h3>
+                                                                    <div className={`text-base font-bold shrink-0 ${transaction.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
                                                                         transaction.type === 'EXPENSE' ? 'text-red-600 dark:text-red-400' :
                                                                             'text-blue-600 dark:text-blue-400'
                                                                         }`}>
@@ -1459,45 +1462,184 @@ export default function DashboardPage() {
                                                                         ₹{transaction.amount.toFixed(2)}
                                                                     </div>
                                                                 </div>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => openEditTransaction(transaction)}
-                                                                    className="h-8 w-8 p-0"
-                                                                >
-                                                                    <Edit className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => handleDeleteTransaction(transaction.id)}
-                                                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-1 min-w-0 overflow-hidden">
+                                                                        <span className="shrink-0">{transaction.category.emoji} {transaction.category.title}</span>
+                                                                        <span className="shrink-0">•</span>
+                                                                        <span className="shrink-0">
+                                                                            {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                        </span>
+                                                                        <span className="truncate">{transaction.source.name}</span>
+                                                                        {transaction.splits && transaction.splits.length > 0 && (
+                                                                            <Popover>
+                                                                                <PopoverTrigger asChild>
+                                                                                    <span className="shrink-0 flex items-center cursor-pointer">
+                                                                                        <span className="shrink-0">•</span>
+                                                                                        <span className="shrink-0 ml-1">🤝</span>
+                                                                                    </span>
+                                                                                </PopoverTrigger>
+                                                                                <PopoverContent className="w-60 p-3" align="start">
+                                                                                    <div className="text-xs font-medium mb-1">Split with:</div>
+                                                                                    <p className="text-xs">
+                                                                                        {transaction.splits
+                                                                                            .map(split => split.connection?.name || 'Unknown')
+                                                                                            .join(', ')
+                                                                                        }
+                                                                                    </p>
+                                                                                </PopoverContent>
+                                                                            </Popover>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                            <span className="shrink-0">{format(new Date(transaction.date), 'dd MMM yyyy')}</span>                                                                        </div>
+                                                                        <Popover>
+                                                                            <PopoverTrigger asChild>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="sm"
+                                                                                    className="h-6 w-6 p-0 shrink-0"
+                                                                                >
+                                                                                    <span className="text-base leading-none">⋯</span>
+                                                                                </Button>
+                                                                            </PopoverTrigger>
+                                                                            <PopoverContent className="w-32 p-1" align="end">
+                                                                                <div className="space-y-1">
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="sm"
+                                                                                        onClick={() => openEditTransaction(transaction)}
+                                                                                        className="w-full justify-start h-8 px-2 text-xs"
+                                                                                    >
+                                                                                        <Edit className="h-3 w-3 mr-2" />
+                                                                                        Edit
+                                                                                    </Button>
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="sm"
+                                                                                        onClick={() => handleDeleteTransaction(transaction.id)}
+                                                                                        className="w-full justify-start h-8 px-2 text-xs text-destructive hover:text-destructive"
+                                                                                    >
+                                                                                        <Trash2 className="h-3 w-3 mr-2" />
+                                                                                        Delete
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </PopoverContent>
+                                                                        </Popover>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </CardContent>
+                                                        </CardContent>
+                                                    ) : (
+                                                        <CardContent className="p-4">
+                                                            <div className="flex items-start justify-between gap-4">
+                                                                <div className="flex items-start gap-3 flex-1 min-w-0">
+                                                                    <div className={`p-2 rounded-full ${transaction.type === 'INCOME' ? 'bg-green-100 dark:bg-green-900/20' :
+                                                                        transaction.type === 'EXPENSE' ? 'bg-red-100 dark:bg-red-900/20' :
+                                                                            'bg-blue-100 dark:bg-blue-900/20'
+                                                                        }`}>
+                                                                        {transaction.type === 'INCOME' ? (
+                                                                            <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                                                        ) : transaction.type === 'EXPENSE' ? (
+                                                                            <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+                                                                        ) : (
+                                                                            <ArrowRightLeft className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <h3 className="font-semibold text-base truncate">{transaction.title}</h3>
+                                                                            <Badge variant="outline" className="text-xs">
+                                                                                {transaction.category.emoji} {transaction.category.title}
+                                                                            </Badge>
+                                                                        </div>
+                                                                        {transaction.description && (
+                                                                            <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                                                                                {transaction.description}
+                                                                            </p>
+                                                                        )}
+                                                                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                                                            <div className="flex items-center gap-1">
+                                                                                <Calendar className="h-3 w-3" />
+                                                                                {format(new Date(transaction.date), 'MMM dd, yyyy HH:mm')}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1">
+                                                                                {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                    transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                                {transaction.source.name}
+                                                                            </div>
+                                                                            {transaction.splits && transaction.splits.length > 0 && (
+                                                                                <Badge variant="secondary" className="text-xs">
+                                                                                    Split with {transaction.splits.map(s => s.selfUser ? (s.selfUser.name || "Myself") : s.connection?.name).filter(Boolean).join(', ')}
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-start gap-2">
+                                                                    <div className="text-right">
+                                                                        <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
+                                                                            transaction.type === 'EXPENSE' ? 'text-red-600 dark:text-red-400' :
+                                                                                'text-blue-600 dark:text-blue-400'
+                                                                            }`}>
+                                                                            {transaction.type === 'INCOME' ? '+' : transaction.type === 'EXPENSE' ? '-' : ''}
+                                                                            ₹{transaction.amount.toFixed(2)}
+                                                                        </div>
+                                                                    </div>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => openEditTransaction(transaction)}
+                                                                        className="h-8 w-8 p-0"
+                                                                    >
+                                                                        <Edit className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => handleDeleteTransaction(transaction.id)}
+                                                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </CardContent>
+                                                    )}
                                                 </Card>
                                             ))}
 
                                             {hasMore && (
                                                 <div ref={observerTarget} className="py-4">
                                                     {loadingTransactions && (
-                                                        <div className="space-y-3">
+                                                        <div className={isMobile ? "space-y-2" : "space-y-3"}>
                                                             {[...Array(3)].map((_, i) => (
                                                                 <Card key={i}>
-                                                                    <CardContent className="p-4">
-                                                                        <div className="flex items-center justify-between">
-                                                                            <div className="flex items-center gap-3 flex-1">
-                                                                                <Skeleton className="h-10 w-10 rounded-full" />
-                                                                                <div className="space-y-2 flex-1">
-                                                                                    <Skeleton className="h-4 w-[200px]" />
-                                                                                    <Skeleton className="h-3 w-[150px]" />
+                                                                    <CardContent className={isMobile ? "px-2.5 py-2" : "p-4"}>
+                                                                        {isMobile ? (
+                                                                            <div className="space-y-0.5">
+                                                                                <div className="flex items-center justify-between gap-2">
+                                                                                    <Skeleton className="h-4 w-[140px]" />
+                                                                                    <Skeleton className="h-4 w-[60px]" />
+                                                                                </div>
+                                                                                <div className="flex items-center justify-between gap-2">
+                                                                                    <Skeleton className="h-3 w-[80%]" />
+                                                                                    <Skeleton className="h-6 w-6 rounded" />
                                                                                 </div>
                                                                             </div>
-                                                                            <Skeleton className="h-6 w-[100px]" />
-                                                                        </div>
+                                                                        ) : (
+                                                                            <div className="flex items-center justify-between">
+                                                                                <div className="flex items-center gap-3 flex-1">
+                                                                                    <Skeleton className="h-10 w-10 rounded-full" />
+                                                                                    <div className="space-y-2 flex-1">
+                                                                                        <Skeleton className="h-4 w-[200px]" />
+                                                                                        <Skeleton className="h-3 w-[150px]" />
+                                                                                    </div>
+                                                                                </div>
+                                                                                <Skeleton className="h-6 w-[100px]" />
+                                                                            </div>
+                                                                        )}
                                                                     </CardContent>
                                                                 </Card>
                                                             ))}
@@ -1507,7 +1649,7 @@ export default function DashboardPage() {
                                             )}
 
                                             {!hasMore && transactions.length > 0 && (
-                                                <div className="text-center py-6 text-sm text-muted-foreground">
+                                                <div className="text-center py-4 md:py-6 text-xs md:text-sm text-muted-foreground">
                                                     You&apos;ve reached the end of your transactions
                                                 </div>
                                             )}
@@ -1521,11 +1663,11 @@ export default function DashboardPage() {
                     {
                         activeTab === "analytics" && (
                             <div className="flex flex-col h-full overflow-y-auto">
-                                <div className="p-4 border-b space-y-3 bg-muted/20 sticky top-0 z-10">
-                                    <div className="flex justify-between items-center">
-                                        <h2 className="text-xl font-bold">Financial Analytics</h2>
+                                <div className="p-0 md:p-4 border-b-0 md:border-b space-y-3 md:bg-muted/20 bg-background sticky top-0 z-10 md:mb-0 mb-2">
+                                    <div className="flex   items-center justify-between">
+                                        <h2 className="text-lg md:text-xl font-bold">Financial Analytics</h2>
                                         <Select value={analyticsTimeRange} onValueChange={setAnalyticsTimeRange}>
-                                            <SelectTrigger className="w-[180px]">
+                                            <SelectTrigger className="w-fit h-9 md:h-10 text-sm">
                                                 <SelectValue placeholder="Select range" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -1540,88 +1682,88 @@ export default function DashboardPage() {
                                 </div>
 
                                 {loadingAnalytics ? (
-                                    <div className="p-4 space-y-4">
+                                    <div className="p-3 md:p-4 space-y-4">
                                         {[...Array(6)].map((_, i) => (
                                             <Card key={i}>
-                                                <CardHeader>
-                                                    <Skeleton className="h-6 w-[200px]" />
+                                                <CardHeader className="p-3 md:p-6">
+                                                    <Skeleton className="h-5 md:h-6 w-[150px] md:w-[200px]" />
                                                 </CardHeader>
-                                                <CardContent>
-                                                    <Skeleton className="h-[300px] w-full" />
+                                                <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+                                                    <Skeleton className="h-[200px] md:h-[300px] w-full" />
                                                 </CardContent>
                                             </Card>
                                         ))}
                                     </div>
                                 ) : !analyticsData || (analyticsData.totals.incomeCount + analyticsData.totals.expenseCount + analyticsData.totals.transferCount) === 0 ? (
-                                    <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                                        <div className="text-6xl mb-4">📊</div>
-                                        <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
-                                        <p className="text-sm text-muted-foreground mb-4">
+                                    <div className="flex flex-col items-center justify-center h-full text-center p-4 md:p-8">
+                                        <div className="text-5xl md:text-6xl mb-4">📊</div>
+                                        <h3 className="text-base md:text-lg font-semibold mb-2">No Data Available</h3>
+                                        <p className="text-xs md:text-sm text-muted-foreground mb-4 max-w-md">
                                             Add some transactions to see your analytics
                                         </p>
-                                        <Button onClick={() => setTransactionDialogOpen(true)}>
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Add Transaction
+                                        <Button onClick={() => setTransactionDialogOpen(true)} className="h-9 md:h-10">
+                                            <Plus className="h-3.5 w-3.5 md:h-4 md:w-4 mr-2" />
+                                            <span className="text-sm">Add Transaction</span>
                                         </Button>
                                     </div>
                                 ) : (
-                                    <div className="p-4 space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="p-0 md:p-4 space-y-4 md:space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                                             <Card>
-                                                <CardHeader className="pb-2">
-                                                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Income</CardTitle>
+                                                <CardHeader className="pb-2 p-3 md:p-6 md:pb-2">
+                                                    <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Total Income</CardTitle>
                                                 </CardHeader>
-                                                <CardContent>
-                                                    <div className="flex items-center gap-2">
-                                                        <TrendingUp className="h-5 w-5 text-green-600" />
-                                                        <span className="text-2xl font-bold text-green-600">₹{analyticsData.totals.income.toFixed(2)}</span>
+                                                <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+                                                    <div className="flex items-center gap-1.5 md:gap-2">
+                                                        <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                                                        <span className="text-lg md:text-2xl font-bold text-green-600">₹{analyticsData.totals.income.toFixed(2)}</span>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                    <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
                                                         {analyticsData.totals.incomeCount} transactions
                                                     </p>
                                                 </CardContent>
                                             </Card>
 
                                             <Card>
-                                                <CardHeader className="pb-2">
-                                                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
+                                                <CardHeader className="pb-2 p-3 md:p-6 md:pb-2">
+                                                    <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
                                                 </CardHeader>
-                                                <CardContent>
-                                                    <div className="flex items-center gap-2">
-                                                        <TrendingDown className="h-5 w-5 text-red-600" />
-                                                        <span className="text-2xl font-bold text-red-600">₹{analyticsData.totals.expenses.toFixed(2)}</span>
+                                                <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+                                                    <div className="flex items-center gap-1.5 md:gap-2">
+                                                        <TrendingDown className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
+                                                        <span className="text-lg md:text-2xl font-bold text-red-600">₹{analyticsData.totals.expenses.toFixed(2)}</span>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                    <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
                                                         {analyticsData.totals.expenseCount} transactions
                                                     </p>
                                                 </CardContent>
                                             </Card>
 
                                             <Card>
-                                                <CardHeader className="pb-2">
-                                                    <CardTitle className="text-sm font-medium text-muted-foreground">Net Balance</CardTitle>
+                                                <CardHeader className="pb-2 p-3 md:p-6 md:pb-2">
+                                                    <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Net Balance</CardTitle>
                                                 </CardHeader>
-                                                <CardContent>
-                                                    <div className="flex items-center gap-2">
-                                                        <ArrowUpDown className="h-5 w-5 text-blue-600" />
-                                                        <span className={`text-2xl font-bold ${analyticsData.totals.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+                                                    <div className="flex items-center gap-1.5 md:gap-2">
+                                                        <ArrowUpDown className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                                                        <span className={`text-lg md:text-2xl font-bold ${analyticsData.totals.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                                             ₹{analyticsData.totals.balance.toFixed(2)}
                                                         </span>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground mt-1">Income - Expenses</p>
+                                                    <p className="text-[10px] md:text-xs text-muted-foreground mt-1">Income - Expenses</p>
                                                 </CardContent>
                                             </Card>
 
                                             <Card>
-                                                <CardHeader className="pb-2">
-                                                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Transfers</CardTitle>
+                                                <CardHeader className="pb-2 p-3 md:p-6 md:pb-2">
+                                                    <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">Total Transfers</CardTitle>
                                                 </CardHeader>
-                                                <CardContent>
-                                                    <div className="flex items-center gap-2">
-                                                        <ArrowRightLeft className="h-5 w-5 text-blue-600" />
-                                                        <span className="text-2xl font-bold text-blue-600">₹{analyticsData.totals.transfers.toFixed(2)}</span>
+                                                <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+                                                    <div className="flex items-center gap-1.5 md:gap-2">
+                                                        <ArrowRightLeft className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                                                        <span className="text-lg md:text-2xl font-bold text-blue-600">₹{analyticsData.totals.transfers.toFixed(2)}</span>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                    <p className="text-[10px] md:text-xs text-muted-foreground mt-1">
                                                         {analyticsData.totals.transferCount} transactions
                                                     </p>
                                                 </CardContent>
@@ -1629,12 +1771,12 @@ export default function DashboardPage() {
                                         </div>
 
                                         <Card>
-                                            <CardHeader>
-                                                <CardTitle>Income vs Expenses Over Time</CardTitle>
-                                                <CardDescription>Track your financial flow</CardDescription>
+                                            <CardHeader className="p-3 md:p-6">
+                                                <CardTitle className="text-sm md:text-base">Income vs Expenses Over Time</CardTitle>
+                                                <CardDescription className="text-xs md:text-sm">Track your financial flow</CardDescription>
                                             </CardHeader>
-                                            <CardContent>
-                                                <ResponsiveContainer width="100%" height={300}>
+                                            <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+                                                <ResponsiveContainer width="100%" height={200} className="md:!h-[300px]">
                                                     <AreaChart data={analyticsData.timeSeriesData}>
                                                         <defs>
                                                             <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
@@ -1647,8 +1789,8 @@ export default function DashboardPage() {
                                                             </linearGradient>
                                                         </defs>
                                                         <CartesianGrid strokeDasharray="3 3" />
-                                                        <XAxis dataKey="date" />
-                                                        <YAxis />
+                                                        <XAxis dataKey="date" className="text-xs" />
+                                                        <YAxis className="text-xs" />
                                                         <Tooltip />
                                                         <Legend />
                                                         <Area type="monotone" dataKey="income" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" />
@@ -1658,13 +1800,13 @@ export default function DashboardPage() {
                                             </CardContent>
                                         </Card>
 
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6">
                                             <Card>
-                                                <CardHeader>
-                                                    <CardTitle>Expenses by Category</CardTitle>
-                                                    <CardDescription>See where your money goes</CardDescription>
+                                                <CardHeader className="p-3 md:p-6">
+                                                    <CardTitle className="text-sm md:text-base">Expenses by Category</CardTitle>
+                                                    <CardDescription className="text-xs md:text-sm">See where your money goes</CardDescription>
                                                 </CardHeader>
-                                                <CardContent>
+                                                <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
                                                     {(() => {
                                                         const categoryData = analyticsData.categoryBreakdown;
                                                         const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c'];
@@ -1675,8 +1817,8 @@ export default function DashboardPage() {
                                                         }));
 
                                                         return categoryData.length > 0 ? (
-                                                            <div className="space-y-4">
-                                                                <ResponsiveContainer width="100%" height={250}>
+                                                            <div className="space-y-3 md:space-y-4">
+                                                                <ResponsiveContainer width="100%" height={200} className="md:!h-[250px]">
                                                                     <PieChart>
                                                                         <Pie
                                                                             data={pieData}
@@ -1684,7 +1826,8 @@ export default function DashboardPage() {
                                                                             cy="50%"
                                                                             labelLine={false}
                                                                             label={(entry) => `${entry.name.split(' ').slice(-1)}`}
-                                                                            outerRadius={80}
+                                                                            outerRadius={60}
+                                                                            className="md:!outerRadius-[80]"
                                                                             fill="#8884d8"
                                                                             dataKey="value"
                                                                         >
@@ -1695,52 +1838,52 @@ export default function DashboardPage() {
                                                                         <Tooltip />
                                                                     </PieChart>
                                                                 </ResponsiveContainer>
-                                                                <div className="space-y-2">
+                                                                <div className="space-y-1.5 md:space-y-2">
                                                                     {categoryData.slice(0, 5).map((cat: { id: string; name: string; emoji: string; amount: number; count: number }, index: number) => (
-                                                                        <div key={index} className="flex items-center justify-between text-sm">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
-                                                                                <span>{cat.emoji} {cat.name}</span>
+                                                                        <div key={index} className="flex items-center justify-between text-xs md:text-sm">
+                                                                            <div className="flex items-center gap-1.5 md:gap-2">
+                                                                                <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                                                                                <span className="truncate">{cat.emoji} {cat.name}</span>
                                                                             </div>
-                                                                            <span className="font-semibold">₹{cat.amount.toFixed(2)}</span>
+                                                                            <span className="font-semibold ml-2">₹{cat.amount.toFixed(2)}</span>
                                                                         </div>
                                                                     ))}
                                                                 </div>
                                                             </div>
                                                         ) : (
-                                                            <p className="text-sm text-muted-foreground text-center py-8">No expense data available</p>
+                                                            <p className="text-xs md:text-sm text-muted-foreground text-center py-6 md:py-8">No expense data available</p>
                                                         );
                                                     })()}
                                                 </CardContent>
                                             </Card>
 
                                             <Card>
-                                                <CardHeader>
-                                                    <CardTitle>Source Balance Impact</CardTitle>
-                                                    <CardDescription>Net change per source</CardDescription>
+                                                <CardHeader className="p-3 md:p-6">
+                                                    <CardTitle className="text-sm md:text-base">Source Balance Impact</CardTitle>
+                                                    <CardDescription className="text-xs md:text-sm">Net change per source</CardDescription>
                                                 </CardHeader>
-                                                <CardContent>
+                                                <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
                                                     {(() => {
                                                         const sourceData = analyticsData.sourceBreakdown;
                                                         return sourceData.length > 0 ? (
-                                                            <div className="space-y-3">
+                                                            <div className="space-y-2.5 md:space-y-3">
                                                                 {sourceData.slice(0, 8).map((source: { id: string; name: string; type: string; amount: number; count: number }, index: number) => (
-                                                                    <div key={index} className="space-y-1">
-                                                                        <div className="flex items-center justify-between text-sm">
-                                                                            <div className="flex items-center gap-2">
+                                                                    <div key={index} className="space-y-0.5 md:space-y-1">
+                                                                        <div className="flex items-center justify-between text-xs md:text-sm">
+                                                                            <div className="flex items-center gap-1.5 md:gap-2">
                                                                                 <span>{source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'}</span>
-                                                                                <span className="font-medium">{source.name}</span>
+                                                                                <span className="font-medium truncate">{source.name}</span>
                                                                             </div>
-                                                                            <span className={`font-semibold ${source.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                                            <span className={`font-semibold ml-2 ${source.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                                                                 {source.amount >= 0 ? '+' : ''}₹{source.amount.toFixed(2)}
                                                                             </span>
                                                                         </div>
-                                                                        <div className="text-xs text-muted-foreground">{source.count} transactions</div>
+                                                                        <div className="text-[10px] md:text-xs text-muted-foreground">{source.count} transactions</div>
                                                                     </div>
                                                                 ))}
                                                             </div>
                                                         ) : (
-                                                            <p className="text-sm text-muted-foreground text-center py-8">No source data available</p>
+                                                            <p className="text-xs md:text-sm text-muted-foreground text-center py-6 md:py-8">No source data available</p>
                                                         );
                                                     })()}
                                                 </CardContent>
@@ -1748,31 +1891,31 @@ export default function DashboardPage() {
                                         </div>
 
                                         <Card>
-                                            <CardHeader>
-                                                <CardTitle>Top 10 Transactions</CardTitle>
-                                                <CardDescription>Highest value transactions in this period</CardDescription>
+                                            <CardHeader className="p-3 md:p-6">
+                                                <CardTitle className="text-sm md:text-base">Top 10 Transactions</CardTitle>
+                                                <CardDescription className="text-xs md:text-sm">Highest value transactions in this period</CardDescription>
                                             </CardHeader>
-                                            <CardContent>
-                                                <div className="space-y-3">
+                                            <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+                                                <div className="space-y-2 md:space-y-3">
                                                     {analyticsData.topTransactions.map((transaction: { id: string; title: string; amount: number; date: Date; type: string; category: { emoji: string; title: string } }, index: number) => (
-                                                        <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg border">
-                                                            <div className="flex items-center gap-3 flex-1">
-                                                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-sm font-bold">
+                                                        <div key={transaction.id} className="flex items-center justify-between p-2 md:p-3 rounded-lg border">
+                                                            <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                                                                <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-muted text-xs md:text-sm font-bold shrink-0">
                                                                     {index + 1}
                                                                 </div>
-                                                                <div className="flex-1">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="font-semibold">{transaction.title}</span>
-                                                                        <Badge variant="outline" className="text-xs">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
+                                                                        <span className="font-semibold text-xs md:text-sm truncate">{transaction.title}</span>
+                                                                        <Badge variant="outline" className="text-[10px] md:text-xs w-fit">
                                                                             {transaction.category.emoji} {transaction.category.title}
                                                                         </Badge>
                                                                     </div>
-                                                                    <p className="text-xs text-muted-foreground">
+                                                                    <p className="text-[10px] md:text-xs text-muted-foreground">
                                                                         {format(new Date(transaction.date), 'MMM dd, yyyy')}
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                            <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600' :
+                                                            <div className={`text-sm md:text-lg font-bold ml-2 shrink-0 ${transaction.type === 'INCOME' ? 'text-green-600' :
                                                                 transaction.type === 'EXPENSE' ? 'text-red-600' : 'text-blue-600'
                                                                 }`}>
                                                                 {transaction.type === 'INCOME' ? '+' : transaction.type === 'EXPENSE' ? '-' : ''}
@@ -1792,7 +1935,7 @@ export default function DashboardPage() {
                     {
                         activeTab === "categories" && (
                             <div className="flex flex-col h-full">
-                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                <div className="p-0 md:p-4 border-b-0 md:border-b space-y-3 bg-muted/20 md:mb-0 mb-2">
                                     <div className="flex gap-2 items-center">
                                         <div className="relative flex-1">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1824,7 +1967,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4">
+                                <div className="flex-1 overflow-y-auto p-0 md:p-4">
                                     {loadingCategories && categoriesData.length === 0 ? (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {[...Array(6)].map((_, i) => (
@@ -1860,7 +2003,7 @@ export default function DashboardPage() {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 {categoriesData.map((category) => (
                                                     <Card key={category.id} className="hover:shadow-md transition-shadow">
-                                                        <CardContent className="p-4">
+                                                        <CardContent>
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                                                     <div className="text-4xl bg-muted/50 p-2 rounded-lg">
@@ -1926,7 +2069,7 @@ export default function DashboardPage() {
                     {
                         activeTab === "connections" && (
                             <div className="flex flex-col h-full">
-                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                <div className="md:p-4 p-0 border-b-0 md:border-b space-y-3 bg-muted/20 md:mb-0 mb-2">
                                     <div className="flex gap-2 items-center">
                                         <div className="relative flex-1">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1958,7 +2101,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4">
+                                <div className="flex-1 overflow-y-auto p-0 md:p-4">
                                     {loadingConnections && connectionsData.length === 0 ? (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {[...Array(6)].map((_, i) => (
@@ -1994,7 +2137,7 @@ export default function DashboardPage() {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 {connectionsData.map((connection) => (
                                                     <Card key={connection.id} className="hover:shadow-md transition-shadow">
-                                                        <CardContent className="p-4">
+                                                        <CardContent>
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                                                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
@@ -2060,7 +2203,7 @@ export default function DashboardPage() {
                     {
                         activeTab === "sources" && (
                             <div className="flex flex-col h-full">
-                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                <div className="md:p-4 p-0 border-b-0 md:border-b space-y-3 bg-muted/20 md:mb-0 mb-2">
                                     <div className="flex gap-2 items-center">
                                         <div className="relative flex-1">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -2092,7 +2235,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4">
+                                <div className="flex-1 overflow-y-auto p-0 md:p-4">
                                     {loadingSources && sourcesData.length === 0 ? (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {[...Array(6)].map((_, i) => (
@@ -2129,7 +2272,7 @@ export default function DashboardPage() {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 {sourcesData.map((source) => (
                                                     <Card key={source.id} className="hover:shadow-md transition-shadow">
-                                                        <CardContent className="p-4">
+                                                        <CardContent>
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                                                     <div className="text-4xl bg-muted/50 p-2 rounded-lg">
@@ -2211,7 +2354,7 @@ export default function DashboardPage() {
             </div>
 
             <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
-                <DialogContent className="min-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="md:min-w-3xl min-w-auto max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
                         <DialogDescription>
@@ -2225,7 +2368,7 @@ export default function DashboardPage() {
                             <Input type="text" placeholder="e.g., Grocery Shopping" value={transactionTitle} onChange={(e) => setTransactionTitle(e.target.value)} id="transaction-title" />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid md:grid-cols-2 grid-cols-1 gap-4">
                             <div className="flex flex-col gap-1">
                                 <Label htmlFor="transaction-amount" className="px-1">
                                     Amount *
@@ -2247,8 +2390,8 @@ export default function DashboardPage() {
                             <DateTimePicker date={transactionDate} setDate={(date) => setTransactionDate(date || new Date())} />
                         </div>
 
-                        <div className="flex gap-4 w-full">
-                            <div className="flex flex-col gap-1 w-1/2">
+                        <div className="flex flex-col md:flex-row md:gap-4 gap-2 w-full">
+                            <div className="flex flex-col gap-1 md:w-1/2 w-full">
                                 <Label htmlFor="transaction-type" className="px-1">Type *</Label>
                                 <Select value={transactionType} onValueChange={(value) => setTransactionType(value as TransactionType)}>
                                     <SelectTrigger className="w-full">
@@ -2262,33 +2405,36 @@ export default function DashboardPage() {
                                 </Select>
                             </div>
 
-                            <div className="flex flex-col gap-1 w-1/2">
+                            <div className="flex flex-col gap-1 md:w-1/2 w-full ">
                                 <div className="flex items-center justify-between px-1">
                                     <Label htmlFor="transaction-category">Category *</Label>
                                 </div>
-                                <div className="flex gap-2 w-full items-center">
-                                    <Select value={transactionCategory} onValueChange={(value) => setTransactionCategory(value)}>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {categories.length === 0 ? (
-                                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                                    No categories yet
-                                                </div>
-                                            ) : (
-                                                categories.map((category) => (
-                                                    <SelectItem key={category.id} value={category.id}>
-                                                        {category.emoji} {category.title}
-                                                    </SelectItem>
-                                                ))
-                                            )}
-                                        </SelectContent>
-                                    </Select>
+                                <div className="flex gap-2 items-center w-full">
+                                    <div className="flex-1">
+                                        <Select value={transactionCategory} onValueChange={(value) => setTransactionCategory(value)}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {categories.length === 0 ? (
+                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                        No categories yet
+                                                    </div>
+                                                ) : (
+                                                    categories.map((category) => (
+                                                        <SelectItem key={category.id} value={category.id}>
+                                                            {category.emoji} {category.title}
+                                                        </SelectItem>
+                                                    ))
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
 
                                     <Button
                                         type="button"
                                         variant="ghost"
+                                        className="flex-shrink-0"
                                         onClick={() => {
                                             setCategoryDialogOpen(true);
                                         }}
