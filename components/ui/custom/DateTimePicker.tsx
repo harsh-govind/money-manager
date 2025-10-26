@@ -17,8 +17,8 @@ export function DateTimePicker({ date, setDate }: { date: Date | undefined, setD
     const [open, setOpen] = React.useState(false)
 
     return (
-        <div className="flex gap-1">
-            <div className="flex flex-col gap-1">
+        <div className="flex gap-1 justify-between w-full">
+            <div className="flex flex-col gap-1 w-1/2">
                 <Label htmlFor="date-picker" className="px-1">
                     Date
                 </Label>
@@ -27,7 +27,7 @@ export function DateTimePicker({ date, setDate }: { date: Date | undefined, setD
                         <Button
                             variant="outline"
                             id="date-picker"
-                            className="w-32 justify-between font-normal"
+                            className="w-full justify-between font-normal"
                         >
                             {date ? date.toLocaleDateString() : "Select date"}
                             <ChevronDownIcon />
@@ -46,7 +46,7 @@ export function DateTimePicker({ date, setDate }: { date: Date | undefined, setD
                     </PopoverContent>
                 </Popover>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 w-1/2">
                 <Label htmlFor="time-picker" className="px-1">
                     Time
                 </Label>

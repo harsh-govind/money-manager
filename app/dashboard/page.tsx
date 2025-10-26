@@ -2356,7 +2356,7 @@ export default function DashboardPage() {
             </div>
 
             <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
-                <DialogContent className="min-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="md:min-w-3xl min-w-auto max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
                         <DialogDescription>
@@ -2370,7 +2370,7 @@ export default function DashboardPage() {
                             <Input type="text" placeholder="e.g., Grocery Shopping" value={transactionTitle} onChange={(e) => setTransactionTitle(e.target.value)} id="transaction-title" />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid md:grid-cols-2 grid-cols-1 gap-4">
                             <div className="flex flex-col gap-1">
                                 <Label htmlFor="transaction-amount" className="px-1">
                                     Amount *
@@ -2392,8 +2392,8 @@ export default function DashboardPage() {
                             <DateTimePicker date={transactionDate} setDate={(date) => setTransactionDate(date || new Date())} />
                         </div>
 
-                        <div className="flex gap-4 w-full">
-                            <div className="flex flex-col gap-1 w-1/2">
+                        <div className="flex flex-col md:flex-row md:gap-4 gap-2 w-full">
+                            <div className="flex flex-col gap-1 md:w-1/2 w-full">
                                 <Label htmlFor="transaction-type" className="px-1">Type *</Label>
                                 <Select value={transactionType} onValueChange={(value) => setTransactionType(value as TransactionType)}>
                                     <SelectTrigger className="w-full">
@@ -2407,33 +2407,36 @@ export default function DashboardPage() {
                                 </Select>
                             </div>
 
-                            <div className="flex flex-col gap-1 w-1/2">
+                            <div className="flex flex-col gap-1 md:w-1/2 w-full ">
                                 <div className="flex items-center justify-between px-1">
                                     <Label htmlFor="transaction-category">Category *</Label>
                                 </div>
-                                <div className="flex gap-2 w-full items-center">
-                                    <Select value={transactionCategory} onValueChange={(value) => setTransactionCategory(value)}>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Select category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {categories.length === 0 ? (
-                                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                                    No categories yet
-                                                </div>
-                                            ) : (
-                                                categories.map((category) => (
-                                                    <SelectItem key={category.id} value={category.id}>
-                                                        {category.emoji} {category.title}
-                                                    </SelectItem>
-                                                ))
-                                            )}
-                                        </SelectContent>
-                                    </Select>
+                                <div className="flex gap-2 items-center w-full">
+                                    <div className="flex-1">
+                                        <Select value={transactionCategory} onValueChange={(value) => setTransactionCategory(value)}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {categories.length === 0 ? (
+                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                        No categories yet
+                                                    </div>
+                                                ) : (
+                                                    categories.map((category) => (
+                                                        <SelectItem key={category.id} value={category.id}>
+                                                            {category.emoji} {category.title}
+                                                        </SelectItem>
+                                                    ))
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
 
                                     <Button
                                         type="button"
                                         variant="ghost"
+                                        className="flex-shrink-0"
                                         onClick={() => {
                                             setCategoryDialogOpen(true);
                                         }}
