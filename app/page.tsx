@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ export default function Home() {
 
           <div className="flex flex-wrap gap-4 justify-center items-center pt-4">
             <Button
-              onClick={() => router.push("/signin")}
+              onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
               size="lg"
               className="text-base group"
             >

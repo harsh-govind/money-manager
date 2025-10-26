@@ -35,7 +35,7 @@ export const Navbar = ({ title }: { title: string }) => {
                             Trash
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/signin" })}>Sign Out</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>Sign Out</DropdownMenuItem>
 
                     </DropdownMenuContent>
                 </DropdownMenu>
