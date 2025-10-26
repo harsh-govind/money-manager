@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type TrashItem = {
     id: string;
@@ -110,28 +111,29 @@ export default function TrashPage() {
         <div className="flex flex-col gap-4">
             <Navbar title="Trash" />
 
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center gap-3 md:gap-0 md:mx-0 mx-2">
                 <div>
-                    <h2 className="text-xl font-semibold">Deleted Items</h2>
-                    <p className="text-sm text-muted-foreground">
-                        Restore or permanently delete items from trash
-                    </p>
+                    <h2 className="text-lg md:text-xl font-semibold">Deleted Items</h2>
+                    <p className="text-xs md:text-sm text-muted-foreground">
+                        Manage deleted items                    </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button onClick={() => router.push('/dashboard')} variant="outline" disabled={restoringId !== null || deletingId !== null || emptyingTrash}>
-                        Back to Dashboard
+                    <Button onClick={() => router.push('/dashboard')} variant="outline" className="text-xs md:text-sm h-8 md:h-10 px-3 md:px-4" disabled={restoringId !== null || deletingId !== null || emptyingTrash}>
+                        <span className="md:hidden">Back</span>
+                        <span className="hidden md:inline">Back to Dashboard</span>
                     </Button>
                     {trashItems.length > 0 && (
-                        <Button onClick={handleEmptyTrash} variant="destructive" disabled={emptyingTrash || restoringId !== null || deletingId !== null}>
+                        <Button onClick={handleEmptyTrash} variant="destructive" className="text-xs md:text-sm h-8 md:h-10 px-3 md:px-4" disabled={emptyingTrash || restoringId !== null || deletingId !== null}>
                             {emptyingTrash ? (
                                 <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    <Loader2 className="w-3 h-3 md:w-4 md:h-4 mr-2 animate-spin" />
                                     Emptying...
                                 </>
                             ) : (
                                 <>
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Empty Trash
+                                    <Trash2 className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                                    <span className="md:hidden">Empty</span>
+                                    <span className="hidden md:inline">Empty Trash</span>
                                 </>
                             )}
                         </Button>
@@ -139,25 +141,105 @@ export default function TrashPage() {
                 </div>
             </div>
 
-            <div className="border rounded-md p-4 min-h-[calc(100vh-200px)]">
+            <div className="border-0 md:border rounded-md p-0 md:p-4 md:min-h-[calc(100vh-200px)] min-h-[calc(100vh-230px)] md:mx-0 mx-2">
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
                         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                     </div>
                 ) : trashItems.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                        <Trash2 className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                        <h3 className="text-lg font-semibold mb-2">Trash is empty</h3>
-                        <p className="text-sm">Deleted items will appear here</p>
+                    <div className="text-center py-8 md:py-12 text-muted-foreground px-4">
+                        <Trash2 className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 opacity-50" />
+                        <h3 className="text-base md:text-lg font-semibold mb-2">Trash is empty</h3>
+                        <p className="text-xs md:text-sm">Deleted items will appear here</p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2 md:space-y-3">
                         {trashItems.map((item) => {
                             const data = item.data;
                             return (
                                 <Card key={item.id} className="hover:shadow-md transition-shadow">
-                                    <CardContent className="p-4">
-                                        <div className="flex items-start justify-between gap-4">
+                                    <CardContent className="px-2.5 py-2 md:p-4">
+                                        <div className="md:hidden space-y-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h3 className="font-semibold truncate text-sm flex-1">{data.title}</h3>
+                                                <div className={`text-base font-bold shrink-0 ${data.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
+                                                    data.type === 'EXPENSE' ? 'text-red-600 dark:text-red-400' :
+                                                        'text-blue-600 dark:text-blue-400'
+                                                    }`}>
+                                                    {data.type === 'INCOME' ? '+' : data.type === 'EXPENSE' ? '-' : ''}
+                                                    ₹{data.amount?.toFixed(2)}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-1 min-w-0 overflow-hidden">
+                                                    <span className="shrink-0">{data.category?.emoji} {data.category?.title}</span>
+                                                    <span className="shrink-0">•</span>
+                                                    <span className="shrink-0">
+                                                        {data.source?.type === 'BANK' ? '🏦' :
+                                                            data.source?.type === 'CASH' ? '💵' : '💳'}
+                                                    </span>
+                                                    <span className="truncate">{data.source?.name}</span>
+                                                </div>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0 shrink-0"
+                                                        >
+                                                            <span className="text-base leading-none">⋯</span>
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-32 p-1" align="end">
+                                                        <div className="space-y-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleRestore(item.id)}
+                                                                disabled={restoringId === item.id || deletingId !== null || emptyingTrash}
+                                                                className="w-full justify-start h-8 px-2 text-xs"
+                                                            >
+                                                                {restoringId === item.id ? (
+                                                                    <>
+                                                                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                                                        Restoring
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <RotateCcw className="h-3 w-3 mr-2" />
+                                                                        Restore
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handlePermanentDelete(item.id)}
+                                                                disabled={deletingId === item.id || restoringId !== null || emptyingTrash}
+                                                                className="w-full justify-start h-8 px-2 text-xs text-destructive hover:text-destructive"
+                                                            >
+                                                                {deletingId === item.id ? (
+                                                                    <>
+                                                                        <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                                                        Deleting
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Trash2 className="h-3 w-3 mr-2" />
+                                                                        Delete
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground pt-0.5">
+                                                Deleted: {format(new Date(item.deletedAt), 'dd MMM yyyy')}
+                                            </div>
+                                        </div>
+
+                                        <div className="hidden md:flex items-start justify-between gap-4">
                                             <div className="flex items-start gap-3 flex-1">
                                                 <div className="text-4xl bg-muted/50 p-2 rounded-lg">
                                                     {data.category?.emoji}
