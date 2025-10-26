@@ -1135,15 +1135,34 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-4">
                 <Navbar title="Dashboard" />
 
-                <div className=" flex gap-4 justify-between">
-                    <div className="flex gap-2 items-center">
+                <div className="flex gap-4 justify-between md:flex-row flex-col-reverse md:px-0 px-2">
+                    <div
+                        className="flex gap-2 items-center md:overflow-hidden overflow-x-auto"
+                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                        // Hide scrollbar for Webkit browsers
+                        // @ts-ignore
+                        css={{
+                            '&::-webkit-scrollbar': {
+                                display: 'none'
+                            }
+                        }}
+                    >
                         {tabs.map((tab) => (
                             <div key={tab.value} onClick={() => setActiveTab(tab.value)} className={`border px-2 py-1 rounded-md cursor-pointer hover:bg-muted ${activeTab === tab.value ? "bg-muted" : ""}`}>
                                 <span className={`${activeTab === tab.value ? "font-bold" : ""} ${activeTab === tab.value ? "text-foreground" : ""}`}>{tab.label}</span>
                             </div>
                         ))}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 md:overflow-hidden overflow-x-auto"
+                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                        // Hide scrollbar for Webkit browsers
+                        // @ts-ignore
+                        css={{
+                            '&::-webkit-scrollbar': {
+                                display: 'none'
+                            }
+                        }}
+                    >
                         <Button onClick={() => {
                             resetTransactionForm();
                             setTransactionDialogOpen(true)
