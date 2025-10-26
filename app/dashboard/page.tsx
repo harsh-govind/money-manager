@@ -1450,9 +1450,9 @@ export default function DashboardPage() {
                                     ) : (
                                         <div className={isMobile ? "space-y-2" : "space-y-3"}>
                                             {transactions.map((transaction) => (
-                                                <div key={transaction.id} className="hover:shadow-md transition-shadow border px-1 py-2 rounded-md bg-muted/20">
+                                                <Card key={transaction.id} className="hover:shadow-md transition-shadow">
                                                     {isMobile ? (
-                                                        <CardContent className="px-2.5 py-0">
+                                                        <CardContent>
                                                             <div className="space-y-0.5">
                                                                 <div className="flex items-center justify-between gap-2">
                                                                     <h3 className="font-semibold truncate text-lg flex-1">{transaction.title}</h3>
@@ -1609,7 +1609,7 @@ export default function DashboardPage() {
                                                             </div>
                                                         </CardContent>
                                                     )}
-                                                </div>
+                                                </Card>
                                             ))}
 
                                             {hasMore && (
@@ -1665,11 +1665,11 @@ export default function DashboardPage() {
                     {
                         activeTab === "analytics" && (
                             <div className="flex flex-col h-full overflow-y-auto">
-                                <div className="p-3 md:p-4 border-b space-y-3 bg-muted/20 sticky top-0 z-10">
-                                    <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
+                                <div className="p-0 md:p-4 border-b-0 md:border-b space-y-3 md:bg-muted/20 bg-background sticky top-0 z-10 md:mb-0 mb-2">
+                                    <div className="flex   items-center justify-between">
                                         <h2 className="text-lg md:text-xl font-bold">Financial Analytics</h2>
                                         <Select value={analyticsTimeRange} onValueChange={setAnalyticsTimeRange}>
-                                            <SelectTrigger className="w-full sm:w-[180px] h-9 md:h-10 text-sm">
+                                            <SelectTrigger className="w-fit h-9 md:h-10 text-sm">
                                                 <SelectValue placeholder="Select range" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -1709,7 +1709,7 @@ export default function DashboardPage() {
                                         </Button>
                                     </div>
                                 ) : (
-                                    <div className="p-3 md:p-4 space-y-4 md:space-y-6">
+                                    <div className="p-0 md:p-4 space-y-4 md:space-y-6">
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                                             <Card>
                                                 <CardHeader className="pb-2 p-3 md:p-6 md:pb-2">
@@ -1937,7 +1937,7 @@ export default function DashboardPage() {
                     {
                         activeTab === "categories" && (
                             <div className="flex flex-col h-full">
-                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                <div className="p-0 md:p-4 border-b-0 md:border-b space-y-3 bg-muted/20 md:mb-0 mb-2">
                                     <div className="flex gap-2 items-center">
                                         <div className="relative flex-1">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1969,7 +1969,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4">
+                                <div className="flex-1 overflow-y-auto p-0 md:p-4">
                                     {loadingCategories && categoriesData.length === 0 ? (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {[...Array(6)].map((_, i) => (
@@ -2005,7 +2005,7 @@ export default function DashboardPage() {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 {categoriesData.map((category) => (
                                                     <Card key={category.id} className="hover:shadow-md transition-shadow">
-                                                        <CardContent className="p-4">
+                                                        <CardContent>
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                                                     <div className="text-4xl bg-muted/50 p-2 rounded-lg">
@@ -2071,7 +2071,7 @@ export default function DashboardPage() {
                     {
                         activeTab === "connections" && (
                             <div className="flex flex-col h-full">
-                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                <div className="md:p-4 p-0 border-b-0 md:border-b space-y-3 bg-muted/20 md:mb-0 mb-2">
                                     <div className="flex gap-2 items-center">
                                         <div className="relative flex-1">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -2103,7 +2103,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4">
+                                <div className="flex-1 overflow-y-auto p-0 md:p-4">
                                     {loadingConnections && connectionsData.length === 0 ? (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {[...Array(6)].map((_, i) => (
@@ -2139,7 +2139,7 @@ export default function DashboardPage() {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 {connectionsData.map((connection) => (
                                                     <Card key={connection.id} className="hover:shadow-md transition-shadow">
-                                                        <CardContent className="p-4">
+                                                        <CardContent>
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                                                     <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
@@ -2205,7 +2205,7 @@ export default function DashboardPage() {
                     {
                         activeTab === "sources" && (
                             <div className="flex flex-col h-full">
-                                <div className="p-4 border-b space-y-3 bg-muted/20">
+                                <div className="md:p-4 p-0 border-b-0 md:border-b space-y-3 bg-muted/20 md:mb-0 mb-2">
                                     <div className="flex gap-2 items-center">
                                         <div className="relative flex-1">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -2237,7 +2237,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto p-4">
+                                <div className="flex-1 overflow-y-auto p-0 md:p-4">
                                     {loadingSources && sourcesData.length === 0 ? (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {[...Array(6)].map((_, i) => (
@@ -2274,7 +2274,7 @@ export default function DashboardPage() {
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 {sourcesData.map((source) => (
                                                     <Card key={source.id} className="hover:shadow-md transition-shadow">
-                                                        <CardContent className="p-4">
+                                                        <CardContent>
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                                                     <div className="text-4xl bg-muted/50 p-2 rounded-lg">
