@@ -1,4 +1,4 @@
-"use client";;
+"use client";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/custom/Navbar";
 import {
@@ -35,6 +35,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns";
 import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 export default function DashboardPage() {
+    const [activeTab, setActiveTab] = useState<string>(() => {
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem("dashboard-active-tab");
+            if (saved && ["analytics", "transactions", "categories", "connections", "sources"].includes(saved)) {
+                return saved;
+            }
+        }
+        return "transactions";
+    });
     const [transactionDialogOpen, setTransactionDialogOpen] = useState<boolean>(false);
     const [categoryDialogOpen, setCategoryDialogOpen] = useState<boolean>(false);
     const [connectionDialogOpen, setConnectionDialogOpen] = useState<boolean>(false);
@@ -53,6 +62,9 @@ export default function DashboardPage() {
     const [newSourceType, setNewSourceType] = useState<SourceType>("BANK");
     const [newSourceAmount, setNewSourceAmount] = useState<number>(0);
     const [newSourceCreditLimit, setNewSourceCreditLimit] = useState<number>(0);
+    const [newSourceSharedLimit, setNewSourceSharedLimit] = useState<boolean>(false);
+    const [newSourceCardNames, setNewSourceCardNames] = useState<string[]>([]);
+    const [newCardNameInput, setNewCardNameInput] = useState<string>("");
     const [editingSource, setEditingSource] = useState<Source | null>(null);
 
     const [transactionAmount, setTransactionAmount] = useState<number | null>(null);
@@ -62,13 +74,15 @@ export default function DashboardPage() {
     const [transactionTitle, setTransactionTitle] = useState<string>("");
     const [transactionCategory, setTransactionCategory] = useState<string>("");
     const [transactionSource, setTransactionSource] = useState<string>("");
+    const [transactionDestination, setTransactionDestination] = useState<string>("");
+    const [transactionSelectedCardName, setTransactionSelectedCardName] = useState<string>("");
+    const [transactionSelectedDestinationCardName, setTransactionSelectedDestinationCardName] = useState<string>("");
     const [transactionSplitted, setTransactionSplitted] = useState<boolean>(false);
     const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
     const [savingState, setSavingState] = useState<string | null>(null);
 
-    const [activeTab, setActiveTab] = useState<string>("analytics");
     const tabs = [
         {
             label: "Analytics",
@@ -188,6 +202,12 @@ export default function DashboardPage() {
         }, 500);
         return () => clearTimeout(timer);
     }, [sourceSearchQuery]);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            localStorage.setItem("dashboard-active-tab", activeTab);
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         if (activeTab === "transactions" && !hasLoadedTransactions) {
@@ -384,7 +404,17 @@ export default function DashboardPage() {
     const loadSources = async () => {
         try {
             const response = await axios.get('/api/source');
-            setSources(response.data.sources);
+            const loadedSources = response.data.sources.map((source: Source) => {
+                if (source.cardNames && typeof source.cardNames === 'string') {
+                    try {
+                        source.cardNames = JSON.parse(source.cardNames);
+                    } catch {
+                        source.cardNames = [];
+                    }
+                }
+                return source;
+            });
+            setSources(loadedSources);
         } catch (error) {
             console.error('Error loading sources:', error);
             toast.error('Failed to load sources');
@@ -786,6 +816,18 @@ export default function DashboardPage() {
         setNewSourceType(source.type);
         setNewSourceAmount(source.amount);
         setNewSourceCreditLimit(source.creditLimit || 0);
+        setNewSourceSharedLimit(Boolean(source.sharedLimit));
+        let cardNames = [];
+        if (Array.isArray(source.cardNames)) {
+            cardNames = source.cardNames;
+        } else if (source.cardNames && typeof source.cardNames === 'string') {
+            try {
+                cardNames = JSON.parse(source.cardNames);
+            } catch {
+                cardNames = [];
+            }
+        }
+        setNewSourceCardNames(cardNames);
         setSourceDialogOpen(true);
     };
 
@@ -795,6 +837,9 @@ export default function DashboardPage() {
         setNewSourceType("BANK");
         setNewSourceAmount(0);
         setNewSourceCreditLimit(0);
+        setNewSourceSharedLimit(false);
+        setNewSourceCardNames([]);
+        setNewCardNameInput("");
         setSourceDialogOpen(false);
     };
 
@@ -959,23 +1004,36 @@ export default function DashboardPage() {
                     name: newSourceName,
                     type: newSourceType,
                     amount: newSourceAmount,
-                    creditLimit: newSourceType === 'CREDIT' ? newSourceCreditLimit : undefined
+                    creditLimit: newSourceType === 'CREDIT' ? newSourceCreditLimit : undefined,
+                    sharedLimit: newSourceType === 'CREDIT' ? newSourceSharedLimit : false,
+                    cardNames: newSourceType === 'CREDIT' && newSourceSharedLimit ? newSourceCardNames : (newSourceType === 'CREDIT' ? [] : undefined)
                 });
-                setSources(sources.map(src =>
-                    src.id === editingSource.id ? response.data.source : src
-                ));
-                setSourcesData(sourcesData.map(src =>
-                    src.id === editingSource.id ? response.data.source : src
-                ));
+                await loadSources();
+                setSourcesData(sourcesData.map(src => {
+                    if (src.id === editingSource.id) {
+                        const updated = response.data.source;
+                        if (updated.cardNames && typeof updated.cardNames === 'string') {
+                            try {
+                                updated.cardNames = JSON.parse(updated.cardNames);
+                            } catch {
+                                updated.cardNames = [];
+                            }
+                        }
+                        return updated;
+                    }
+                    return src;
+                }));
                 toast.success(response.data.message);
             } else {
                 const response = await axios.post('/api/source', {
                     name: newSourceName,
                     type: newSourceType,
                     amount: newSourceAmount,
-                    creditLimit: newSourceType === 'CREDIT' ? newSourceCreditLimit : undefined
+                    creditLimit: newSourceType === 'CREDIT' ? newSourceCreditLimit : undefined,
+                    sharedLimit: newSourceType === 'CREDIT' ? newSourceSharedLimit : false,
+                    cardNames: newSourceType === 'CREDIT' && newSourceSharedLimit ? newSourceCardNames : []
                 });
-                setSources([response.data.source, ...sources]);
+                await loadSources();
                 if (activeTab === "sources") {
                     resetAndLoadSourcesData();
                 }
@@ -986,6 +1044,9 @@ export default function DashboardPage() {
             setNewSourceType("BANK");
             setNewSourceAmount(0);
             setNewSourceCreditLimit(0);
+            setNewSourceSharedLimit(false);
+            setNewSourceCardNames([]);
+            setNewCardNameInput("");
             setEditingSource(null);
             setSourceDialogOpen(false);
         } catch (error) {
@@ -1000,7 +1061,8 @@ export default function DashboardPage() {
         setTransactionDialogOpen(false);
     }
 
-    const openEditTransaction = (transaction: Transaction) => {
+    const openEditTransaction = async (transaction: Transaction) => {
+        await loadSources();
         setEditingTransaction(transaction);
         setTransactionTitle(transaction.title);
         setTransactionDescription(transaction.description || "");
@@ -1009,6 +1071,9 @@ export default function DashboardPage() {
         setTransactionType(transaction.type);
         setTransactionCategory(transaction.categoryId);
         setTransactionSource(transaction.sourceId);
+        setTransactionDestination(transaction.destinationId || "");
+        setTransactionSelectedCardName(transaction.selectedCardName || "");
+        setTransactionSelectedDestinationCardName(transaction.selectedDestinationCardName || "");
         setTransactionSplitted(Boolean(transaction.splits && transaction.splits.length > 0));
         setSplitMethod(transaction.splitMethod || "equal");
 
@@ -1041,6 +1106,9 @@ export default function DashboardPage() {
         setTransactionType("EXPENSE");
         setTransactionCategory("");
         setTransactionSource("");
+        setTransactionDestination("");
+        setTransactionSelectedCardName("");
+        setTransactionSelectedDestinationCardName("");
         setTransactionSplitted(false);
         setSplitMethod("equal");
         setAvailableConnections(availableConnections.map(conn => ({
@@ -1097,6 +1165,61 @@ export default function DashboardPage() {
                 return;
             }
 
+            if (transactionType === 'TRANSFER' && !transactionDestination) {
+                toast.error('Destination is required for transfers');
+                return;
+            }
+
+            if (transactionType === 'INCOME') {
+                const selectedSource = sources.find(s => s.id === transactionSource);
+                if (selectedSource?.type === 'CREDIT') {
+                    toast.error('Income cannot be added to credit card');
+                    return;
+                }
+            }
+
+            if ((transactionType === 'EXPENSE' || transactionType === 'TRANSFER') && transactionSource) {
+                const selectedSource = sources.find(s => s.id === transactionSource);
+                if (selectedSource?.type === 'CREDIT' && selectedSource?.sharedLimit) {
+                    let cardNamesArray: string[] = [];
+                    if (Array.isArray(selectedSource.cardNames)) {
+                        cardNamesArray = selectedSource.cardNames;
+                    } else if (selectedSource.cardNames && typeof selectedSource.cardNames === 'string') {
+                        try {
+                            const parsed = JSON.parse(selectedSource.cardNames);
+                            cardNamesArray = Array.isArray(parsed) ? parsed : [];
+                        } catch {
+                            cardNamesArray = [];
+                        }
+                    }
+                    if (cardNamesArray.length > 0 && !transactionSelectedCardName) {
+                        toast.error('Please select a source card');
+                        return;
+                    }
+                }
+            }
+
+            if (transactionType === 'TRANSFER' && transactionDestination) {
+                const selectedDestination = sources.find(s => s.id === transactionDestination);
+                if (selectedDestination?.type === 'CREDIT' && selectedDestination?.sharedLimit) {
+                    let cardNamesArray: string[] = [];
+                    if (Array.isArray(selectedDestination.cardNames)) {
+                        cardNamesArray = selectedDestination.cardNames;
+                    } else if (selectedDestination.cardNames && typeof selectedDestination.cardNames === 'string') {
+                        try {
+                            const parsed = JSON.parse(selectedDestination.cardNames);
+                            cardNamesArray = Array.isArray(parsed) ? parsed : [];
+                        } catch {
+                            cardNamesArray = [];
+                        }
+                    }
+                    if (cardNamesArray.length > 0 && !transactionSelectedDestinationCardName) {
+                        toast.error('Please select a destination card');
+                        return;
+                    }
+                }
+            }
+
             const actionType = editingTransaction ? 'update-transaction' : 'add-transaction';
             setSavingState(actionType);
 
@@ -1110,6 +1233,9 @@ export default function DashboardPage() {
                 transactionCategory,
                 transactionTitle,
                 transactionSource,
+                transactionDestination: transactionType === 'TRANSFER' ? transactionDestination : undefined,
+                transactionSelectedCardName: transactionSelectedCardName || undefined,
+                transactionSelectedDestinationCardName: transactionType === 'TRANSFER' ? (transactionSelectedDestinationCardName || undefined) : undefined,
                 transactionSplitted,
                 splitMethod,
                 connections: selectedForSplit,
@@ -1466,11 +1592,51 @@ export default function DashboardPage() {
                                                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-1 min-w-0 overflow-hidden">
                                                                         <span className="shrink-0">{transaction.category.emoji} {transaction.category.title}</span>
                                                                         <span className="shrink-0">•</span>
-                                                                        <span className="shrink-0">
-                                                                            {transaction.source.type === 'BANK' ? '🏦' :
-                                                                                transaction.source.type === 'CASH' ? '💵' : '💳'}
-                                                                        </span>
-                                                                        <span className="truncate">{transaction.source.name}</span>
+                                                                        {transaction.type === 'TRANSFER' ? (
+                                                                            <>
+                                                                                <span className="shrink-0">
+                                                                                    {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                        transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                                </span>
+                                                                                <span className="truncate">{transaction.source.name}</span>
+                                                                                {transaction.selectedCardName && (
+                                                                                    <>
+                                                                                        <span className="shrink-0">•</span>
+                                                                                        <span className="truncate text-xs">{transaction.selectedCardName}</span>
+                                                                                    </>
+                                                                                )}
+                                                                                <span className="shrink-0">→</span>
+                                                                                {transaction.destination && (
+                                                                                    <>
+                                                                                        <span className="shrink-0">
+                                                                                            {transaction.destination.type === 'BANK' ? '🏦' :
+                                                                                                transaction.destination.type === 'CASH' ? '💵' : '💳'}
+                                                                                        </span>
+                                                                                        <span className="truncate">{transaction.destination.name}</span>
+                                                                                        {transaction.selectedDestinationCardName && (
+                                                                                            <>
+                                                                                                <span className="shrink-0">•</span>
+                                                                                                <span className="truncate text-xs">{transaction.selectedDestinationCardName}</span>
+                                                                                            </>
+                                                                                        )}
+                                                                                    </>
+                                                                                )}
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <span className="shrink-0">
+                                                                                    {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                        transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                                </span>
+                                                                                <span className="truncate">{transaction.source.name}</span>
+                                                                                {transaction.selectedCardName && (
+                                                                                    <>
+                                                                                        <span className="shrink-0">•</span>
+                                                                                        <span className="truncate text-xs">{transaction.selectedCardName}</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </>
+                                                                        )}
                                                                         {transaction.splits && transaction.splits.length > 0 && (
                                                                             <Popover>
                                                                                 <PopoverTrigger asChild>
@@ -1564,11 +1730,49 @@ export default function DashboardPage() {
                                                                                 <Calendar className="h-3 w-3" />
                                                                                 {format(new Date(transaction.date), 'MMM dd, yyyy HH:mm')}
                                                                             </div>
-                                                                            <div className="flex items-center gap-1">
-                                                                                {transaction.source.type === 'BANK' ? '🏦' :
-                                                                                    transaction.source.type === 'CASH' ? '💵' : '💳'}
-                                                                                {transaction.source.name}
-                                                                            </div>
+                                                                            {transaction.type === 'TRANSFER' ? (
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <span className="shrink-0">
+                                                                                        {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                            transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                                    </span>
+                                                                                    <span>{transaction.source.name}</span>
+                                                                                    {transaction.selectedCardName && (
+                                                                                        <>
+                                                                                            <span>•</span>
+                                                                                            <span>{transaction.selectedCardName}</span>
+                                                                                        </>
+                                                                                    )}
+                                                                                    {transaction.destination && (
+                                                                                        <>
+                                                                                            <span>→</span>
+                                                                                            <span className="shrink-0">
+                                                                                                {transaction.destination.type === 'BANK' ? '🏦' :
+                                                                                                    transaction.destination.type === 'CASH' ? '💵' : '💳'}
+                                                                                            </span>
+                                                                                            <span>{transaction.destination.name}</span>
+                                                                                            {transaction.selectedDestinationCardName && (
+                                                                                                <>
+                                                                                                    <span>•</span>
+                                                                                                    <span>{transaction.selectedDestinationCardName}</span>
+                                                                                                </>
+                                                                                            )}
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="flex items-center gap-1">
+                                                                                    {transaction.source.type === 'BANK' ? '🏦 ' :
+                                                                                        transaction.source.type === 'CASH' ? '💵 ' : '💳 '}
+                                                                                    {transaction.source.name}
+                                                                                    {transaction.selectedCardName && (
+                                                                                        <>
+                                                                                            <span>•</span>
+                                                                                            <span>{transaction.selectedCardName}</span>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
                                                                             {transaction.splits && transaction.splits.length > 0 && (
                                                                                 <Badge variant="secondary" className="text-xs">
                                                                                     Split with {transaction.splits.map(s => s.selfUser ? (s.selfUser.name || "Myself") : s.connection?.name).filter(Boolean).join(', ')}
@@ -2353,7 +2557,12 @@ export default function DashboardPage() {
 
             </div>
 
-            <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
+            <Dialog open={transactionDialogOpen} onOpenChange={(open) => {
+                setTransactionDialogOpen(open);
+                if (open) {
+                    loadSources();
+                }
+            }}>
                 <DialogContent className="md:min-w-3xl min-w-auto max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</DialogTitle>
@@ -2393,7 +2602,18 @@ export default function DashboardPage() {
                         <div className="flex flex-col md:flex-row md:gap-4 gap-2 w-full">
                             <div className="flex flex-col gap-1 md:w-1/2 w-full">
                                 <Label htmlFor="transaction-type" className="px-1">Type *</Label>
-                                <Select value={transactionType} onValueChange={(value) => setTransactionType(value as TransactionType)}>
+                                <Select value={transactionType} onValueChange={(value) => {
+                                    const newType = value as TransactionType;
+                                    setTransactionType(newType);
+                                    setTransactionSelectedCardName("");
+                                    setTransactionSelectedDestinationCardName("");
+                                    if (newType === 'INCOME' && transactionSource) {
+                                        const selectedSource = sources.find(s => s.id === transactionSource);
+                                        if (selectedSource?.type === 'CREDIT') {
+                                            setTransactionSource("");
+                                        }
+                                    }
+                                }}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select type" />
                                     </SelectTrigger>
@@ -2447,12 +2667,18 @@ export default function DashboardPage() {
 
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center justify-between px-1">
-                                <Label htmlFor="transaction-source">Source *</Label>
+                                <Label htmlFor="transaction-source">{transactionType === 'TRANSFER' ? 'From *' : 'Source *'}</Label>
                             </div>
                             <div className="flex gap-2 w-full items-center">
-                                <Select value={transactionSource} onValueChange={(value) => setTransactionSource(value)}>
+                                <Select value={transactionSource} onValueChange={(value) => {
+                                    setTransactionSource(value);
+                                    setTransactionSelectedCardName("");
+                                    if (transactionType === 'TRANSFER') {
+                                        setTransactionSelectedDestinationCardName("");
+                                    }
+                                }}>
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select source" />
+                                        <SelectValue placeholder={transactionType === 'TRANSFER' ? "Select source" : "Select source"} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {sources.length === 0 ? (
@@ -2460,7 +2686,12 @@ export default function DashboardPage() {
                                                 No sources yet
                                             </div>
                                         ) : (
-                                            sources.map((source) => (
+                                            sources.filter(source => {
+                                                if (transactionType === 'INCOME') {
+                                                    return source.type !== 'CREDIT';
+                                                }
+                                                return true;
+                                            }).map((source) => (
                                                 <SelectItem key={source.id} value={source.id}>
                                                     {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name}
                                                     {source.type === 'CREDIT' && source.creditLimit ?
@@ -2484,6 +2715,153 @@ export default function DashboardPage() {
                                 </Button>
                             </div>
                         </div>
+
+                        {(() => {
+                            if (transactionType !== 'EXPENSE' && transactionType !== 'TRANSFER') return null;
+                            if (!transactionSource) return null;
+
+                            const selectedSource = sources.find(s => s.id === transactionSource);
+                            if (!selectedSource || selectedSource.type !== 'CREDIT') return null;
+
+                            const hasSharedLimit = Boolean(selectedSource.sharedLimit);
+                            if (!hasSharedLimit) return null;
+
+                            let cardNamesArray: string[] = [];
+                            const cardNames = selectedSource.cardNames;
+
+                            if (cardNames) {
+                                if (Array.isArray(cardNames)) {
+                                    cardNamesArray = cardNames;
+                                } else if (typeof cardNames === 'string') {
+                                    try {
+                                        const parsed = JSON.parse(cardNames);
+                                        cardNamesArray = Array.isArray(parsed) ? parsed : [];
+                                    } catch (e) {
+                                        cardNamesArray = [];
+                                    }
+                                }
+                            }
+
+                            if (!Array.isArray(cardNamesArray) || cardNamesArray.length === 0) {
+                                return null;
+                            }
+
+                            return (
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center justify-between px-1">
+                                        <Label htmlFor="transaction-card">{transactionType === 'TRANSFER' ? 'Select Source Card *' : 'Select Card *'}</Label>
+                                    </div>
+                                    <Select value={transactionSelectedCardName} onValueChange={(value) => setTransactionSelectedCardName(value)}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder={transactionType === 'TRANSFER' ? "Select source card" : "Select card"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {cardNamesArray.map((cardName: string, index: number) => (
+                                                <SelectItem key={index} value={cardName}>
+                                                    {cardName}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            );
+                        })()}
+
+                        {transactionType === 'TRANSFER' && (
+                            <>
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center justify-between px-1">
+                                        <Label htmlFor="transaction-destination">To *</Label>
+                                    </div>
+                                    <div className="flex gap-2 w-full items-center">
+                                        <Select value={transactionDestination} onValueChange={(value) => {
+                                            setTransactionDestination(value);
+                                            setTransactionSelectedDestinationCardName("");
+                                        }}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select destination" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {sources.length === 0 ? (
+                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                        No sources yet
+                                                    </div>
+                                                ) : (
+                                                    sources.filter(source => source.id !== transactionSource).map((source) => (
+                                                        <SelectItem key={source.id} value={source.id}>
+                                                            {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name}
+                                                            {source.type === 'CREDIT' && source.creditLimit ?
+                                                                ` (₹${source.amount.toFixed(2)} / ₹${source.creditLimit.toFixed(2)})`
+                                                                : ` (₹${source.amount.toFixed(2)})`
+                                                            }
+                                                        </SelectItem>
+                                                    ))
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={() => {
+                                                setSourceDialogOpen(true);
+                                            }}
+                                        >
+                                            <Plus />
+                                        </Button>
+                                    </div>
+                                </div>
+                                {(() => {
+                                    if (!transactionDestination) return null;
+
+                                    const selectedDestination = sources.find(s => s.id === transactionDestination);
+                                    if (!selectedDestination || selectedDestination.type !== 'CREDIT') return null;
+
+                                    const hasSharedLimit = Boolean(selectedDestination.sharedLimit);
+                                    if (!hasSharedLimit) return null;
+
+                                    let cardNamesArray: string[] = [];
+                                    const cardNames = selectedDestination.cardNames;
+
+                                    if (cardNames) {
+                                        if (Array.isArray(cardNames)) {
+                                            cardNamesArray = cardNames;
+                                        } else if (typeof cardNames === 'string') {
+                                            try {
+                                                const parsed = JSON.parse(cardNames);
+                                                cardNamesArray = Array.isArray(parsed) ? parsed : [];
+                                            } catch (e) {
+                                                cardNamesArray = [];
+                                            }
+                                        }
+                                    }
+
+                                    if (!Array.isArray(cardNamesArray) || cardNamesArray.length === 0) {
+                                        return null;
+                                    }
+
+                                    return (
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center justify-between px-1">
+                                                <Label htmlFor="transaction-destination-card">Select Destination Card *</Label>
+                                            </div>
+                                            <Select value={transactionSelectedDestinationCardName} onValueChange={(value) => setTransactionSelectedDestinationCardName(value)}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select destination card" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {cardNamesArray.map((cardName: string, index: number) => (
+                                                        <SelectItem key={index} value={cardName}>
+                                                            {cardName}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    );
+                                })()}
+                            </>
+                        )}
 
                         <div className="flex flex-col gap-1">
                             <Label htmlFor="transaction-description" className="px-1">Description</Label>
@@ -2803,28 +3181,88 @@ export default function DashboardPage() {
                         </div>
 
                         {newSourceType === 'CREDIT' && (
-                            <div className="flex flex-col gap-2">
-                                <Label htmlFor="source-credit-limit">Total Credit Limit</Label>
-                                <Input
-                                    id="source-credit-limit"
-                                    type="number"
-                                    placeholder="0.00"
-                                    value={newSourceCreditLimit || ""}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        if (value === "") {
-                                            setNewSourceCreditLimit(0);
-                                        } else {
-                                            const numValue = Number(value);
-                                            if (!isNaN(numValue)) {
-                                                setNewSourceCreditLimit(numValue);
+                            <>
+                                <div className="flex flex-col gap-2">
+                                    <Label htmlFor="source-credit-limit">Total Credit Limit</Label>
+                                    <Input
+                                        id="source-credit-limit"
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={newSourceCreditLimit || ""}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            if (value === "") {
+                                                setNewSourceCreditLimit(0);
+                                            } else {
+                                                const numValue = Number(value);
+                                                if (!isNaN(numValue)) {
+                                                    setNewSourceCreditLimit(numValue);
+                                                }
                                             }
-                                        }
-                                    }}
-                                    className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                />
-                                <p className="text-xs text-muted-foreground">Enter the total credit limit for this card</p>
-                            </div>
+                                        }}
+                                        className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Enter the total credit limit for this card</p>
+                                </div>
+                                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                                    <Checkbox id="shared-limit" checked={newSourceSharedLimit} onCheckedChange={(checked) => setNewSourceSharedLimit(checked as boolean)} />
+                                    <Label htmlFor="shared-limit" className="cursor-pointer">Shared Limit (Multiple cards from different banks)</Label>
+                                </div>
+                                {newSourceSharedLimit && (
+                                    <div className="flex flex-col gap-2">
+                                        <Label>Card Names</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                placeholder="Enter card name"
+                                                value={newCardNameInput}
+                                                onChange={(e) => setNewCardNameInput(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && newCardNameInput.trim()) {
+                                                        e.preventDefault();
+                                                        if (!newSourceCardNames.includes(newCardNameInput.trim())) {
+                                                            setNewSourceCardNames([...newSourceCardNames, newCardNameInput.trim()]);
+                                                            setNewCardNameInput("");
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    if (newCardNameInput.trim() && !newSourceCardNames.includes(newCardNameInput.trim())) {
+                                                        setNewSourceCardNames([...newSourceCardNames, newCardNameInput.trim()]);
+                                                        setNewCardNameInput("");
+                                                    }
+                                                }}
+                                            >
+                                                Add
+                                            </Button>
+                                        </div>
+                                        {newSourceCardNames.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {newSourceCardNames.map((cardName, index) => (
+                                                    <div key={index} className="flex items-center gap-1 px-2 py-1 bg-primary/10 rounded-md">
+                                                        <span className="text-sm">{cardName}</span>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-5 w-5 p-0"
+                                                            onClick={() => {
+                                                                setNewSourceCardNames(newSourceCardNames.filter((_, i) => i !== index));
+                                                            }}
+                                                        >
+                                                            ×
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <p className="text-xs text-muted-foreground">Add card names that share this credit limit</p>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                     <DialogFooter className="gap-2">

@@ -13,6 +13,9 @@ type TransactionData = {
     type: "INCOME" | "EXPENSE" | "TRANSFER";
     categoryId: string;
     sourceId: string;
+    destinationId?: string | null;
+    selectedCardName?: string | null;
+    selectedDestinationCardName?: string | null;
     splitMethod?: "equal" | "percentage" | "amount";
     splits?: Array<{
         connectionId?: string;
@@ -95,6 +98,9 @@ export async function POST(req: NextRequest) {
                     type: transactionData.type,
                     categoryId: transactionData.categoryId,
                     sourceId: transactionData.sourceId,
+                    destinationId: transactionData.type === 'TRANSFER' ? (transactionData.destinationId ?? undefined) : undefined,
+                    selectedCardName: transactionData.selectedCardName ?? undefined,
+                    selectedDestinationCardName: transactionData.selectedDestinationCardName ?? undefined,
                     splitMethod: transactionData.splitMethod,
                     userId: session.user.id,
                     connections: transactionData.splits?.map((split) => ({

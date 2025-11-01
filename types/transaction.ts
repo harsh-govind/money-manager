@@ -17,6 +17,8 @@ export type Source = {
     type: SourceType;
     amount: number;
     creditLimit?: number;
+    sharedLimit?: boolean;
+    cardNames?: string[];
     userId: string;
     createdAt: Date;
     updatedAt: Date;
@@ -59,11 +61,15 @@ export type Transaction = {
     type: TransactionType;
     categoryId: string;
     sourceId: string;
+    destinationId?: string | null;
+    selectedCardName?: string | null;
+    selectedDestinationCardName?: string | null;
     splitMethod?: SplitMethod;
     userId: string;
     createdAt: Date;
     updatedAt: Date;
     category: Category;
     source: Source;
+    destination?: Source | null;
     splits?: Split[];
 }

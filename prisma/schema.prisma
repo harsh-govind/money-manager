@@ -78,22 +78,26 @@ model VerificationToken {
 }
 
 model Transaction {
-  id          String    @id @default(uuid()) @db.Uuid
-  title       String
-  description String?
-  amount      Float
-  date        DateTime
-  type        TransactionType
-  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  categoryId  String    @db.Uuid
-  source      Source    @relation(fields: [sourceId], references: [id], onDelete: Restrict)
-  sourceId    String    @db.Uuid
-  splitMethod SplitMethod?
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String    @db.Uuid
-  splits      Split[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(uuid()) @db.Uuid
+  title         String
+  description   String?
+  amount        Float
+  date          DateTime
+  type          TransactionType
+  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId    String    @db.Uuid
+  source        Source    @relation("SourceTransactions", fields: [sourceId], references: [id], onDelete: Restrict)
+  sourceId      String    @db.Uuid
+  destination   Source?   @relation("DestinationTransactions", fields: [destinationId], references: [id], onDelete: Restrict)
+  destinationId String?   @db.Uuid
+  selectedCardName String?
+  selectedDestinationCardName String?
+  splitMethod   SplitMethod?
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String    @db.Uuid
+  splits        Split[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@map("transactions")
 }
@@ -152,16 +156,19 @@ model Category {
 }
 
 model Source {
-  id           String       @id @default(uuid()) @db.Uuid
-  name         String
-  type         SourceType
-  amount       Float        @default(0)
-  creditLimit  Float?
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId       String       @db.Uuid
-  transactions Transaction[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id                  String       @id @default(uuid()) @db.Uuid
+  name                String
+  type                SourceType
+  amount              Float        @default(0)
+  creditLimit         Float?
+  sharedLimit         Boolean      @default(false)
+  cardNames           Json?
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId              String       @db.Uuid
+  sourceTransactions  Transaction[] @relation("SourceTransactions")
+  destinationTransactions Transaction[] @relation("DestinationTransactions")
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
   @@map("sources")
 }
