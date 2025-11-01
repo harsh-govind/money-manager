@@ -90,6 +90,8 @@ model Transaction {
   sourceId      String    @db.Uuid
   destination   Source?   @relation("DestinationTransactions", fields: [destinationId], references: [id], onDelete: Restrict)
   destinationId String?   @db.Uuid
+  selectedCardName String?
+  selectedDestinationCardName String?
   splitMethod   SplitMethod?
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        String    @db.Uuid
@@ -159,6 +161,8 @@ model Source {
   type                SourceType
   amount              Float        @default(0)
   creditLimit         Float?
+  sharedLimit         Boolean      @default(false)
+  cardNames           Json?
   user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId              String       @db.Uuid
   sourceTransactions  Transaction[] @relation("SourceTransactions")

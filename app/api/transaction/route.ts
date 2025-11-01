@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getTransactionsByUserId, createTransaction, updateTransaction, deleteTransactionById } from "@/services/transaction";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
     try {
@@ -68,6 +69,8 @@ export async function POST(req: NextRequest) {
             transactionTitle,
             transactionSource,
             transactionDestination,
+            transactionSelectedCardName,
+            transactionSelectedDestinationCardName,
             transactionSplitted,
             splitMethod,
             connections
@@ -85,6 +88,22 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
+        const source = await prisma.source.findUnique({
+            where: { id: transactionSource }
+        });
+
+        if (!source) {
+            return NextResponse.json({
+                message: "Source not found"
+            }, { status: 400 });
+        }
+
+        if (transactionType === 'INCOME' && source.type === 'CREDIT') {
+            return NextResponse.json({
+                message: "Income cannot be added to credit card"
+            }, { status: 400 });
+        }
+
         const transaction = await createTransaction({
             title: transactionTitle,
             description: transactionDescription || undefined,
@@ -94,6 +113,8 @@ export async function POST(req: NextRequest) {
             categoryId: transactionCategory,
             sourceId: transactionSource,
             destinationId: transactionType === 'TRANSFER' ? transactionDestination : undefined,
+            selectedCardName: transactionSelectedCardName || undefined,
+            selectedDestinationCardName: transactionType === 'TRANSFER' ? (transactionSelectedDestinationCardName || undefined) : undefined,
             splitMethod: transactionSplitted && splitMethod ? splitMethod : undefined,
             userId: session.user.id,
             connections: transactionSplitted && connections?.length > 0 ? connections : undefined
@@ -131,6 +152,8 @@ export async function PUT(req: NextRequest) {
             transactionTitle,
             transactionSource,
             transactionDestination,
+            transactionSelectedCardName,
+            transactionSelectedDestinationCardName,
             transactionSplitted,
             splitMethod,
             connections
@@ -148,6 +171,22 @@ export async function PUT(req: NextRequest) {
             }, { status: 400 });
         }
 
+        const source = await prisma.source.findUnique({
+            where: { id: transactionSource }
+        });
+
+        if (!source) {
+            return NextResponse.json({
+                message: "Source not found"
+            }, { status: 400 });
+        }
+
+        if (transactionType === 'INCOME' && source.type === 'CREDIT') {
+            return NextResponse.json({
+                message: "Income cannot be added to credit card"
+            }, { status: 400 });
+        }
+
         const transaction = await updateTransaction(
             id,
             session.user.id,
@@ -160,6 +199,8 @@ export async function PUT(req: NextRequest) {
                 categoryId: transactionCategory,
                 sourceId: transactionSource,
                 destinationId: transactionType === 'TRANSFER' ? transactionDestination : undefined,
+                selectedCardName: transactionSelectedCardName || undefined,
+                selectedDestinationCardName: transactionType === 'TRANSFER' ? (transactionSelectedDestinationCardName || undefined) : undefined,
                 splitMethod: transactionSplitted && splitMethod ? splitMethod : undefined,
                 userId: session.user.id,
                 connections: transactionSplitted && connections?.length > 0 ? connections : undefined

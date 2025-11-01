@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
             }, { status: 401 });
         }
 
-        const { name, type, amount, creditLimit } = await req.json();
+        const { name, type, amount, creditLimit, sharedLimit, cardNames } = await req.json();
 
         if (!name || !type) {
             return NextResponse.json({
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        const source = await createSource(session.user.id, name, type, amount || 0, creditLimit);
+        const source = await createSource(session.user.id, name, type, amount || 0, creditLimit, sharedLimit, cardNames);
 
         return NextResponse.json({
             message: "Source created successfully",
@@ -85,7 +85,7 @@ export async function PATCH(req: NextRequest) {
             }, { status: 401 });
         }
 
-        const { id, name, type, amount, creditLimit } = await req.json();
+        const { id, name, type, amount, creditLimit, sharedLimit, cardNames } = await req.json();
 
         if (!id) {
             return NextResponse.json({
@@ -99,7 +99,7 @@ export async function PATCH(req: NextRequest) {
             }, { status: 400 });
         }
 
-        const source = await updateSource(id, session.user.id, name, type, amount, creditLimit);
+        const source = await updateSource(id, session.user.id, name, type, amount, creditLimit, sharedLimit, cardNames);
 
         return NextResponse.json({
             message: "Source updated successfully",

@@ -9,6 +9,8 @@ type CreateTransactionData = {
     categoryId: string;
     sourceId: string;
     destinationId?: string;
+    selectedCardName?: string;
+    selectedDestinationCardName?: string;
     splitMethod?: "equal" | "percentage" | "amount";
     userId: string;
     connections?: Array<{
@@ -135,6 +137,10 @@ export async function createTransaction(data: CreateTransactionData) {
 
         if (!source) {
             throw new Error('Source not found');
+        }
+
+        if (data.type === 'INCOME' && source.type === 'CREDIT') {
+            throw new Error('Income cannot be added to credit card');
         }
 
         if (data.type === 'TRANSFER') {
@@ -346,6 +352,8 @@ export async function deleteTransactionById(transactionId: string, userId: strin
                             categoryId: transaction.categoryId,
                             sourceId: transaction.sourceId,
                             destinationId: transaction.destinationId,
+                            selectedCardName: transaction.selectedCardName,
+                            selectedDestinationCardName: transaction.selectedDestinationCardName,
                             splitMethod: transaction.splitMethod,
                             category: {
                                 title: transaction.category.title,
@@ -448,6 +456,10 @@ export async function updateTransaction(
 
         if (!newSource) {
             throw new Error('New source not found');
+        }
+
+        if (newType === 'INCOME' && newSource.type === 'CREDIT') {
+            throw new Error('Income cannot be added to credit card');
         }
 
         const newDestination = newType === 'TRANSFER' && newDestinationId
