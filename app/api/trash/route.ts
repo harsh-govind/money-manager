@@ -98,9 +98,9 @@ export async function POST(req: NextRequest) {
                     type: transactionData.type,
                     categoryId: transactionData.categoryId,
                     sourceId: transactionData.sourceId,
-                    destinationId: transactionData.type === 'TRANSFER' ? transactionData.destinationId : undefined,
-                    selectedCardName: transactionData.selectedCardName || undefined,
-                    selectedDestinationCardName: transactionData.selectedDestinationCardName || undefined,
+                    destinationId: transactionData.type === 'TRANSFER' ? (transactionData.destinationId ?? undefined) : undefined,
+                    selectedCardName: transactionData.selectedCardName ?? undefined,
+                    selectedDestinationCardName: transactionData.selectedDestinationCardName ?? undefined,
                     splitMethod: transactionData.splitMethod,
                     userId: session.user.id,
                     connections: transactionData.splits?.map((split) => ({
