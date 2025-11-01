@@ -35,6 +35,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns";
 import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 export default function DashboardPage() {
+    const [activeTab, setActiveTab] = useState<string>(() => {
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem("dashboard-active-tab");
+            if (saved && ["analytics", "transactions", "categories", "connections", "sources"].includes(saved)) {
+                return saved;
+            }
+        }
+        return "transactions";
+    });
     const [transactionDialogOpen, setTransactionDialogOpen] = useState<boolean>(false);
     const [categoryDialogOpen, setCategoryDialogOpen] = useState<boolean>(false);
     const [connectionDialogOpen, setConnectionDialogOpen] = useState<boolean>(false);
@@ -74,7 +83,6 @@ export default function DashboardPage() {
 
     const [savingState, setSavingState] = useState<string | null>(null);
 
-    const [activeTab, setActiveTab] = useState<string>("analytics");
     const tabs = [
         {
             label: "Analytics",
@@ -194,6 +202,12 @@ export default function DashboardPage() {
         }, 500);
         return () => clearTimeout(timer);
     }, [sourceSearchQuery]);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            localStorage.setItem("dashboard-active-tab", activeTab);
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         if (activeTab === "transactions" && !hasLoadedTransactions) {
