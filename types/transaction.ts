@@ -59,11 +59,13 @@ export type Transaction = {
     type: TransactionType;
     categoryId: string;
     sourceId: string;
+    destinationId?: string | null;
     splitMethod?: SplitMethod;
     userId: string;
     createdAt: Date;
     updatedAt: Date;
     category: Category;
     source: Source;
+    destination?: Source | null;
     splits?: Split[];
 }

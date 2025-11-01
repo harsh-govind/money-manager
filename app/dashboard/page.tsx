@@ -62,6 +62,7 @@ export default function DashboardPage() {
     const [transactionTitle, setTransactionTitle] = useState<string>("");
     const [transactionCategory, setTransactionCategory] = useState<string>("");
     const [transactionSource, setTransactionSource] = useState<string>("");
+    const [transactionDestination, setTransactionDestination] = useState<string>("");
     const [transactionSplitted, setTransactionSplitted] = useState<boolean>(false);
     const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -1009,6 +1010,7 @@ export default function DashboardPage() {
         setTransactionType(transaction.type);
         setTransactionCategory(transaction.categoryId);
         setTransactionSource(transaction.sourceId);
+        setTransactionDestination(transaction.destinationId || "");
         setTransactionSplitted(Boolean(transaction.splits && transaction.splits.length > 0));
         setSplitMethod(transaction.splitMethod || "equal");
 
@@ -1041,6 +1043,7 @@ export default function DashboardPage() {
         setTransactionType("EXPENSE");
         setTransactionCategory("");
         setTransactionSource("");
+        setTransactionDestination("");
         setTransactionSplitted(false);
         setSplitMethod("equal");
         setAvailableConnections(availableConnections.map(conn => ({
@@ -1097,6 +1100,11 @@ export default function DashboardPage() {
                 return;
             }
 
+            if (transactionType === 'TRANSFER' && !transactionDestination) {
+                toast.error('Destination is required for transfers');
+                return;
+            }
+
             const actionType = editingTransaction ? 'update-transaction' : 'add-transaction';
             setSavingState(actionType);
 
@@ -1110,6 +1118,7 @@ export default function DashboardPage() {
                 transactionCategory,
                 transactionTitle,
                 transactionSource,
+                transactionDestination: transactionType === 'TRANSFER' ? transactionDestination : undefined,
                 transactionSplitted,
                 splitMethod,
                 connections: selectedForSplit,
@@ -1466,11 +1475,33 @@ export default function DashboardPage() {
                                                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-1 min-w-0 overflow-hidden">
                                                                         <span className="shrink-0">{transaction.category.emoji} {transaction.category.title}</span>
                                                                         <span className="shrink-0">•</span>
-                                                                        <span className="shrink-0">
-                                                                            {transaction.source.type === 'BANK' ? '🏦' :
-                                                                                transaction.source.type === 'CASH' ? '💵' : '💳'}
-                                                                        </span>
-                                                                        <span className="truncate">{transaction.source.name}</span>
+                                                                        {transaction.type === 'TRANSFER' ? (
+                                                                            <>
+                                                                                <span className="shrink-0">
+                                                                                    {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                        transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                                </span>
+                                                                                <span className="truncate">{transaction.source.name}</span>
+                                                                                <span className="shrink-0">→</span>
+                                                                                {transaction.destination && (
+                                                                                    <>
+                                                                                        <span className="shrink-0">
+                                                                                            {transaction.destination.type === 'BANK' ? '🏦' :
+                                                                                                transaction.destination.type === 'CASH' ? '💵' : '💳'}
+                                                                                        </span>
+                                                                                        <span className="truncate">{transaction.destination.name}</span>
+                                                                                    </>
+                                                                                )}
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <span className="shrink-0">
+                                                                                    {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                        transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                                </span>
+                                                                                <span className="truncate">{transaction.source.name}</span>
+                                                                            </>
+                                                                        )}
                                                                         {transaction.splits && transaction.splits.length > 0 && (
                                                                             <Popover>
                                                                                 <PopoverTrigger asChild>
@@ -1564,11 +1595,31 @@ export default function DashboardPage() {
                                                                                 <Calendar className="h-3 w-3" />
                                                                                 {format(new Date(transaction.date), 'MMM dd, yyyy HH:mm')}
                                                                             </div>
-                                                                            <div className="flex items-center gap-1">
-                                                                                {transaction.source.type === 'BANK' ? '🏦' :
-                                                                                    transaction.source.type === 'CASH' ? '💵' : '💳'}
-                                                                                {transaction.source.name}
-                                                                            </div>
+                                                                            {transaction.type === 'TRANSFER' ? (
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <span className="shrink-0">
+                                                                                        {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                            transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                                    </span>
+                                                                                    <span>{transaction.source.name}</span>
+                                                                                    {transaction.destination && (
+                                                                                        <>
+                                                                                            <span>→</span>
+                                                                                            <span className="shrink-0">
+                                                                                                {transaction.destination.type === 'BANK' ? '🏦' :
+                                                                                                    transaction.destination.type === 'CASH' ? '💵' : '💳'}
+                                                                                            </span>
+                                                                                            <span>{transaction.destination.name}</span>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="flex items-center gap-1">
+                                                                                    {transaction.source.type === 'BANK' ? '🏦' :
+                                                                                        transaction.source.type === 'CASH' ? '💵' : '💳'}
+                                                                                    {transaction.source.name}
+                                                                                </div>
+                                                                            )}
                                                                             {transaction.splits && transaction.splits.length > 0 && (
                                                                                 <Badge variant="secondary" className="text-xs">
                                                                                     Split with {transaction.splits.map(s => s.selfUser ? (s.selfUser.name || "Myself") : s.connection?.name).filter(Boolean).join(', ')}
@@ -2447,12 +2498,12 @@ export default function DashboardPage() {
 
                         <div className="flex flex-col gap-1">
                             <div className="flex items-center justify-between px-1">
-                                <Label htmlFor="transaction-source">Source *</Label>
+                                <Label htmlFor="transaction-source">{transactionType === 'TRANSFER' ? 'From *' : 'Source *'}</Label>
                             </div>
                             <div className="flex gap-2 w-full items-center">
                                 <Select value={transactionSource} onValueChange={(value) => setTransactionSource(value)}>
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select source" />
+                                        <SelectValue placeholder={transactionType === 'TRANSFER' ? "Select source" : "Select source"} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {sources.length === 0 ? (
@@ -2484,6 +2535,48 @@ export default function DashboardPage() {
                                 </Button>
                             </div>
                         </div>
+
+                        {transactionType === 'TRANSFER' && (
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center justify-between px-1">
+                                    <Label htmlFor="transaction-destination">To *</Label>
+                                </div>
+                                <div className="flex gap-2 w-full items-center">
+                                    <Select value={transactionDestination} onValueChange={(value) => setTransactionDestination(value)}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select destination" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {sources.length === 0 ? (
+                                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                    No sources yet
+                                                </div>
+                                            ) : (
+                                                sources.filter(source => source.id !== transactionSource).map((source) => (
+                                                    <SelectItem key={source.id} value={source.id}>
+                                                        {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name}
+                                                        {source.type === 'CREDIT' && source.creditLimit ?
+                                                            ` (₹${source.amount.toFixed(2)} / ₹${source.creditLimit.toFixed(2)})`
+                                                            : ` (₹${source.amount.toFixed(2)})`
+                                                        }
+                                                    </SelectItem>
+                                                ))
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={() => {
+                                            setSourceDialogOpen(true);
+                                        }}
+                                    >
+                                        <Plus />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="flex flex-col gap-1">
                             <Label htmlFor="transaction-description" className="px-1">Description</Label>

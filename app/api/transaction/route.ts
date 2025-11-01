@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
             transactionCategory,
             transactionTitle,
             transactionSource,
+            transactionDestination,
             transactionSplitted,
             splitMethod,
             connections
@@ -78,6 +79,12 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
+        if (transactionType === 'TRANSFER' && !transactionDestination) {
+            return NextResponse.json({
+                message: "Destination is required for transfers"
+            }, { status: 400 });
+        }
+
         const transaction = await createTransaction({
             title: transactionTitle,
             description: transactionDescription || undefined,
@@ -86,6 +93,7 @@ export async function POST(req: NextRequest) {
             type: transactionType,
             categoryId: transactionCategory,
             sourceId: transactionSource,
+            destinationId: transactionType === 'TRANSFER' ? transactionDestination : undefined,
             splitMethod: transactionSplitted && splitMethod ? splitMethod : undefined,
             userId: session.user.id,
             connections: transactionSplitted && connections?.length > 0 ? connections : undefined
@@ -122,6 +130,7 @@ export async function PUT(req: NextRequest) {
             transactionCategory,
             transactionTitle,
             transactionSource,
+            transactionDestination,
             transactionSplitted,
             splitMethod,
             connections
@@ -130,6 +139,12 @@ export async function PUT(req: NextRequest) {
         if (!id || !transactionAmount || !transactionDate || !transactionType || !transactionTitle || !transactionSource || !transactionCategory) {
             return NextResponse.json({
                 message: "Required fields missing"
+            }, { status: 400 });
+        }
+
+        if (transactionType === 'TRANSFER' && !transactionDestination) {
+            return NextResponse.json({
+                message: "Destination is required for transfers"
             }, { status: 400 });
         }
 
@@ -144,6 +159,7 @@ export async function PUT(req: NextRequest) {
                 type: transactionType,
                 categoryId: transactionCategory,
                 sourceId: transactionSource,
+                destinationId: transactionType === 'TRANSFER' ? transactionDestination : undefined,
                 splitMethod: transactionSplitted && splitMethod ? splitMethod : undefined,
                 userId: session.user.id,
                 connections: transactionSplitted && connections?.length > 0 ? connections : undefined

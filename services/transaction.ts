@@ -8,6 +8,7 @@ type CreateTransactionData = {
     type: "INCOME" | "EXPENSE" | "TRANSFER";
     categoryId: string;
     sourceId: string;
+    destinationId?: string;
     splitMethod?: "equal" | "percentage" | "amount";
     userId: string;
     connections?: Array<{
@@ -87,6 +88,7 @@ export async function getTransactionsByUserId(userId: string, filters?: GetTrans
             include: {
                 category: true,
                 source: true,
+                destination: true,
                 splits: {
                     include: {
                         connection: true,
@@ -135,19 +137,56 @@ export async function createTransaction(data: CreateTransactionData) {
             throw new Error('Source not found');
         }
 
-        let amountDelta = 0;
+        if (data.type === 'TRANSFER') {
+            if (!data.destinationId) {
+                throw new Error('Destination is required for transfers');
+            }
 
-        if (source.type === 'CREDIT') {
-            if (data.type === 'EXPENSE') {
-                amountDelta = data.amount;
-            } else if (data.type === 'INCOME') {
-                amountDelta = -data.amount;
+            if (data.sourceId === data.destinationId) {
+                throw new Error('Source and destination cannot be the same');
+            }
+
+            const destination = await prisma.source.findUnique({
+                where: { id: data.destinationId }
+            });
+
+            if (!destination) {
+                throw new Error('Destination not found');
+            }
+        }
+
+        let sourceDelta = 0;
+        let destinationDelta = 0;
+
+        if (data.type === 'TRANSFER') {
+            if (source.type === 'CREDIT') {
+                sourceDelta = data.amount;
+            } else {
+                sourceDelta = -data.amount;
+            }
+
+            const destination = await prisma.source.findUnique({
+                where: { id: data.destinationId! }
+            });
+
+            if (destination!.type === 'CREDIT') {
+                destinationDelta = -data.amount;
+            } else {
+                destinationDelta = data.amount;
             }
         } else {
-            if (data.type === 'INCOME') {
-                amountDelta = data.amount;
-            } else if (data.type === 'EXPENSE') {
-                amountDelta = -data.amount;
+            if (source.type === 'CREDIT') {
+                if (data.type === 'EXPENSE') {
+                    sourceDelta = data.amount;
+                } else if (data.type === 'INCOME') {
+                    sourceDelta = -data.amount;
+                }
+            } else {
+                if (data.type === 'INCOME') {
+                    sourceDelta = data.amount;
+                } else if (data.type === 'EXPENSE') {
+                    sourceDelta = -data.amount;
+                }
             }
         }
 
@@ -166,6 +205,7 @@ export async function createTransaction(data: CreateTransactionData) {
                 include: {
                     category: true,
                     source: true,
+                    destination: true,
                     splits: {
                         include: {
                             connection: true,
@@ -180,12 +220,23 @@ export async function createTransaction(data: CreateTransactionData) {
                 }
             });
 
-            if (amountDelta !== 0) {
+            if (sourceDelta !== 0) {
                 await tx.source.update({
                     where: { id: data.sourceId },
                     data: {
                         amount: {
-                            increment: amountDelta
+                            increment: sourceDelta
+                        }
+                    }
+                });
+            }
+
+            if (data.type === 'TRANSFER' && destinationDelta !== 0) {
+                await tx.source.update({
+                    where: { id: data.destinationId! },
+                    data: {
+                        amount: {
+                            increment: destinationDelta
                         }
                     }
                 });
@@ -206,6 +257,7 @@ export async function getTransactionById(transactionId: string) {
             include: {
                 category: true,
                 source: true,
+                destination: true,
                 splits: {
                     include: {
                         connection: true,
@@ -231,6 +283,7 @@ export async function deleteTransactionById(transactionId: string, userId: strin
             where: { id: transactionId, userId },
             include: {
                 source: true,
+                destination: true,
                 category: true,
                 splits: {
                     include: {
@@ -245,19 +298,36 @@ export async function deleteTransactionById(transactionId: string, userId: strin
             throw new Error('Transaction not found');
         }
 
-        let amountDelta = 0;
+        let sourceDelta = 0;
+        let destinationDelta = 0;
 
-        if (transaction.source.type === 'CREDIT') {
-            if (transaction.type === 'EXPENSE') {
-                amountDelta = -transaction.amount;
-            } else if (transaction.type === 'INCOME') {
-                amountDelta = transaction.amount;
+        if (transaction.type === 'TRANSFER') {
+            if (transaction.source.type === 'CREDIT') {
+                sourceDelta = -transaction.amount;
+            } else {
+                sourceDelta = transaction.amount;
+            }
+
+            if (transaction.destination) {
+                if (transaction.destination.type === 'CREDIT') {
+                    destinationDelta = transaction.amount;
+                } else {
+                    destinationDelta = -transaction.amount;
+                }
             }
         } else {
-            if (transaction.type === 'INCOME') {
-                amountDelta = -transaction.amount;
-            } else if (transaction.type === 'EXPENSE') {
-                amountDelta = transaction.amount;
+            if (transaction.source.type === 'CREDIT') {
+                if (transaction.type === 'EXPENSE') {
+                    sourceDelta = -transaction.amount;
+                } else if (transaction.type === 'INCOME') {
+                    sourceDelta = transaction.amount;
+                }
+            } else {
+                if (transaction.type === 'INCOME') {
+                    sourceDelta = -transaction.amount;
+                } else if (transaction.type === 'EXPENSE') {
+                    sourceDelta = transaction.amount;
+                }
             }
         }
 
@@ -275,6 +345,7 @@ export async function deleteTransactionById(transactionId: string, userId: strin
                             type: transaction.type,
                             categoryId: transaction.categoryId,
                             sourceId: transaction.sourceId,
+                            destinationId: transaction.destinationId,
                             splitMethod: transaction.splitMethod,
                             category: {
                                 title: transaction.category.title,
@@ -284,6 +355,10 @@ export async function deleteTransactionById(transactionId: string, userId: strin
                                 name: transaction.source.name,
                                 type: transaction.source.type
                             },
+                            destination: transaction.destination ? {
+                                name: transaction.destination.name,
+                                type: transaction.destination.type
+                            } : null,
                             splits: transaction.splits.map(split => ({
                                 connectionId: split.connectionId,
                                 selfUserId: split.selfUserId,
@@ -305,12 +380,23 @@ export async function deleteTransactionById(transactionId: string, userId: strin
                 }
             });
 
-            if (amountDelta !== 0) {
+            if (sourceDelta !== 0) {
                 await tx.source.update({
                     where: { id: transaction.sourceId },
                     data: {
                         amount: {
-                            increment: amountDelta
+                            increment: sourceDelta
+                        }
+                    }
+                });
+            }
+
+            if (transaction.type === 'TRANSFER' && transaction.destination && destinationDelta !== 0) {
+                await tx.source.update({
+                    where: { id: transaction.destinationId! },
+                    data: {
+                        amount: {
+                            increment: destinationDelta
                         }
                     }
                 });
@@ -334,7 +420,7 @@ export async function updateTransaction(
 
         const oldTransaction = await prisma.transaction.findUnique({
             where: { id: transactionId, userId },
-            include: { source: true }
+            include: { source: true, destination: true }
         });
 
         if (!oldTransaction) {
@@ -342,9 +428,19 @@ export async function updateTransaction(
         }
 
         const oldSource = oldTransaction.source;
+        const oldDestination = oldTransaction.destination;
         const newSourceId = data.sourceId || oldTransaction.sourceId;
+        const newDestinationId = data.destinationId !== undefined ? data.destinationId : oldTransaction.destinationId;
         const newType = data.type || oldTransaction.type;
         const newAmount = data.amount !== undefined ? data.amount : oldTransaction.amount;
+
+        if (newType === 'TRANSFER' && !newDestinationId) {
+            throw new Error('Destination is required for transfers');
+        }
+
+        if (newType === 'TRANSFER' && newSourceId === newDestinationId) {
+            throw new Error('Source and destination cannot be the same');
+        }
 
         const newSource = newSourceId !== oldTransaction.sourceId
             ? await prisma.source.findUnique({ where: { id: newSourceId } })
@@ -354,34 +450,78 @@ export async function updateTransaction(
             throw new Error('New source not found');
         }
 
-        let oldSourceDelta = 0;
-        let newSourceDelta = 0;
+        const newDestination = newType === 'TRANSFER' && newDestinationId
+            ? (newDestinationId !== oldTransaction.destinationId
+                ? await prisma.source.findUnique({ where: { id: newDestinationId } })
+                : oldDestination)
+            : null;
 
-        if (oldSource.type === 'CREDIT') {
-            if (oldTransaction.type === 'EXPENSE') {
+        if (newType === 'TRANSFER' && !newDestination) {
+            throw new Error('New destination not found');
+        }
+
+        let oldSourceDelta = 0;
+        let oldDestinationDelta = 0;
+        let newSourceDelta = 0;
+        let newDestinationDelta = 0;
+
+        if (oldTransaction.type === 'TRANSFER') {
+            if (oldSource.type === 'CREDIT') {
                 oldSourceDelta = -oldTransaction.amount;
-            } else if (oldTransaction.type === 'INCOME') {
+            } else {
                 oldSourceDelta = oldTransaction.amount;
             }
+
+            if (oldDestination) {
+                if (oldDestination.type === 'CREDIT') {
+                    oldDestinationDelta = oldTransaction.amount;
+                } else {
+                    oldDestinationDelta = -oldTransaction.amount;
+                }
+            }
         } else {
-            if (oldTransaction.type === 'INCOME') {
-                oldSourceDelta = -oldTransaction.amount;
-            } else if (oldTransaction.type === 'EXPENSE') {
-                oldSourceDelta = oldTransaction.amount;
+            if (oldSource.type === 'CREDIT') {
+                if (oldTransaction.type === 'EXPENSE') {
+                    oldSourceDelta = -oldTransaction.amount;
+                } else if (oldTransaction.type === 'INCOME') {
+                    oldSourceDelta = oldTransaction.amount;
+                }
+            } else {
+                if (oldTransaction.type === 'INCOME') {
+                    oldSourceDelta = -oldTransaction.amount;
+                } else if (oldTransaction.type === 'EXPENSE') {
+                    oldSourceDelta = oldTransaction.amount;
+                }
             }
         }
 
-        if (newSource.type === 'CREDIT') {
-            if (newType === 'EXPENSE') {
+        if (newType === 'TRANSFER') {
+            if (newSource.type === 'CREDIT') {
                 newSourceDelta = newAmount;
-            } else if (newType === 'INCOME') {
+            } else {
                 newSourceDelta = -newAmount;
             }
+
+            if (newDestination) {
+                if (newDestination.type === 'CREDIT') {
+                    newDestinationDelta = -newAmount;
+                } else {
+                    newDestinationDelta = newAmount;
+                }
+            }
         } else {
-            if (newType === 'INCOME') {
-                newSourceDelta = newAmount;
-            } else if (newType === 'EXPENSE') {
-                newSourceDelta = -newAmount;
+            if (newSource.type === 'CREDIT') {
+                if (newType === 'EXPENSE') {
+                    newSourceDelta = newAmount;
+                } else if (newType === 'INCOME') {
+                    newSourceDelta = -newAmount;
+                }
+            } else {
+                if (newType === 'INCOME') {
+                    newSourceDelta = newAmount;
+                } else if (newType === 'EXPENSE') {
+                    newSourceDelta = -newAmount;
+                }
             }
         }
 
@@ -407,6 +547,7 @@ export async function updateTransaction(
                 include: {
                     category: true,
                     source: true,
+                    destination: true,
                     splits: {
                         include: {
                             connection: true,
@@ -432,7 +573,18 @@ export async function updateTransaction(
                 });
             }
 
-            if (newSourceDelta !== 0) {
+            if (oldTransaction.type === 'TRANSFER' && oldDestination && oldDestinationDelta !== 0) {
+                await tx.source.update({
+                    where: { id: oldTransaction.destinationId! },
+                    data: {
+                        amount: {
+                            increment: oldDestinationDelta
+                        }
+                    }
+                });
+            }
+
+            if (newSourceDelta !== 0 && newSourceId !== oldTransaction.sourceId) {
                 await tx.source.update({
                     where: { id: newSourceId },
                     data: {
@@ -441,6 +593,37 @@ export async function updateTransaction(
                         }
                     }
                 });
+            } else if (newSourceDelta !== 0 && newSourceId === oldTransaction.sourceId && (newType !== oldTransaction.type || newAmount !== oldTransaction.amount)) {
+                await tx.source.update({
+                    where: { id: newSourceId },
+                    data: {
+                        amount: {
+                            increment: newSourceDelta - oldSourceDelta
+                        }
+                    }
+                });
+            }
+
+            if (newType === 'TRANSFER' && newDestination && newDestinationDelta !== 0) {
+                if (newDestinationId !== oldTransaction.destinationId) {
+                    await tx.source.update({
+                        where: { id: newDestinationId! },
+                        data: {
+                            amount: {
+                                increment: newDestinationDelta
+                            }
+                        }
+                    });
+                } else if (newAmount !== oldTransaction.amount) {
+                    await tx.source.update({
+                        where: { id: newDestinationId! },
+                        data: {
+                            amount: {
+                                increment: newDestinationDelta - oldDestinationDelta
+                            }
+                        }
+                    });
+                }
             }
 
             return transaction;
