@@ -143,6 +143,7 @@ export async function createTransaction(data: CreateTransactionData) {
             throw new Error('Income cannot be added to credit card');
         }
 
+        let destination = null;
         if (data.type === 'TRANSFER') {
             if (!data.destinationId) {
                 throw new Error('Destination is required for transfers');
@@ -152,7 +153,7 @@ export async function createTransaction(data: CreateTransactionData) {
                 throw new Error('Source and destination cannot be the same');
             }
 
-            const destination = await prisma.source.findUnique({
+            destination = await prisma.source.findUnique({
                 where: { id: data.destinationId }
             });
 
@@ -171,13 +172,9 @@ export async function createTransaction(data: CreateTransactionData) {
                 sourceDelta = -data.amount;
             }
 
-            const destination = await prisma.source.findUnique({
-                where: { id: data.destinationId! }
-            });
-
-            if (destination!.type === 'CREDIT') {
+            if (destination && destination.type === 'CREDIT') {
                 destinationDelta = -data.amount;
-            } else {
+            } else if (destination) {
                 destinationDelta = data.amount;
             }
         } else {
@@ -237,9 +234,9 @@ export async function createTransaction(data: CreateTransactionData) {
                 });
             }
 
-            if (data.type === 'TRANSFER' && destinationDelta !== 0) {
+            if (data.type === 'TRANSFER' && data.destinationId && destinationDelta !== 0) {
                 await tx.source.update({
-                    where: { id: data.destinationId! },
+                    where: { id: data.destinationId },
                     data: {
                         amount: {
                             increment: destinationDelta
@@ -399,9 +396,9 @@ export async function deleteTransactionById(transactionId: string, userId: strin
                 });
             }
 
-            if (transaction.type === 'TRANSFER' && transaction.destination && destinationDelta !== 0) {
+            if (transaction.type === 'TRANSFER' && transaction.destinationId && destinationDelta !== 0) {
                 await tx.source.update({
-                    where: { id: transaction.destinationId! },
+                    where: { id: transaction.destinationId },
                     data: {
                         amount: {
                             increment: destinationDelta
@@ -585,9 +582,9 @@ export async function updateTransaction(
                 });
             }
 
-            if (oldTransaction.type === 'TRANSFER' && oldDestination && oldDestinationDelta !== 0) {
+            if (oldTransaction.type === 'TRANSFER' && oldTransaction.destinationId && oldDestinationDelta !== 0) {
                 await tx.source.update({
-                    where: { id: oldTransaction.destinationId! },
+                    where: { id: oldTransaction.destinationId },
                     data: {
                         amount: {
                             increment: oldDestinationDelta
@@ -616,19 +613,21 @@ export async function updateTransaction(
                 });
             }
 
-            if (newType === 'TRANSFER' && newDestination && newDestinationDelta !== 0) {
+            if (newType === 'TRANSFER' && newDestinationId && newDestinationDelta !== 0) {
                 if (newDestinationId !== oldTransaction.destinationId) {
+                    // Destination changed, apply new delta to new destination
                     await tx.source.update({
-                        where: { id: newDestinationId! },
+                        where: { id: newDestinationId },
                         data: {
                             amount: {
                                 increment: newDestinationDelta
                             }
                         }
                     });
-                } else if (newAmount !== oldTransaction.amount) {
+                } else if (newDestinationId === oldTransaction.destinationId && newAmount !== oldTransaction.amount) {
+                    // Same destination, but amount changed, apply net change
                     await tx.source.update({
-                        where: { id: newDestinationId! },
+                        where: { id: newDestinationId },
                         data: {
                             amount: {
                                 increment: newDestinationDelta - oldDestinationDelta
