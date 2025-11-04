@@ -1257,9 +1257,12 @@ export default function DashboardPage() {
             toast.success(response.data.message);
             resetTransactionForm();
 
+            // Refresh data after transaction operations
             if (activeTab === "transactions") {
                 resetAndLoadTransactions();
             }
+            // Always refresh sources since balances are updated by transactions
+            await loadSources();
 
         } catch (error) {
             console.error('Error saving transaction\n', error)
