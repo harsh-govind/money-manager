@@ -1699,25 +1699,14 @@ export default function DashboardPage() {
                                                         </CardContent>
                                                     ) : (
                                                         <CardContent className="p-4">
-                                                            <div className="flex items-start justify-between gap-4">
-                                                                <div className="flex items-start gap-3 flex-1 min-w-0">
-                                                                    <div className={`p-2 rounded-full ${transaction.type === 'INCOME' ? 'bg-green-100 dark:bg-green-900/20' :
-                                                                        transaction.type === 'EXPENSE' ? 'bg-red-100 dark:bg-red-900/20' :
-                                                                            'bg-blue-100 dark:bg-blue-900/20'
-                                                                        }`}>
-                                                                        {transaction.type === 'INCOME' ? (
-                                                                            <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
-                                                                        ) : transaction.type === 'EXPENSE' ? (
-                                                                            <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
-                                                                        ) : (
-                                                                            <ArrowRightLeft className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                                                        )}
-                                                                    </div>
+                                                            <div className="flex items-center justify-between gap-4">
+                                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                    <span className="text-4xl flex items-center justify-center">{transaction.category.emoji}</span>
                                                                     <div className="flex-1 min-w-0">
                                                                         <div className="flex items-center gap-2 mb-1">
                                                                             <h3 className="font-semibold text-base truncate">{transaction.title}</h3>
                                                                             <Badge variant="outline" className="text-xs">
-                                                                                {transaction.category.emoji} {transaction.category.title}
+                                                                                {transaction.category.title}
                                                                             </Badge>
                                                                         </div>
                                                                         {transaction.description && (
@@ -1781,8 +1770,15 @@ export default function DashboardPage() {
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="flex items-start gap-2">
-                                                                    <div className="text-right">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="text-right flex items-center gap-2">
+                                                                        {transaction.type === 'INCOME' ? (
+                                                                            <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                                                        ) : transaction.type === 'EXPENSE' ? (
+                                                                            <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+                                                                        ) : (
+                                                                            <ArrowRightLeft className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                                                        )}
                                                                         <div className={`text-lg font-bold ${transaction.type === 'INCOME' ? 'text-green-600 dark:text-green-400' :
                                                                             transaction.type === 'EXPENSE' ? 'text-red-600 dark:text-red-400' :
                                                                                 'text-blue-600 dark:text-blue-400'
