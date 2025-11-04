@@ -93,16 +93,16 @@ export default function DashboardPage() {
             value: "transactions"
         },
         {
+            label: "Sources",
+            value: "sources"
+        },
+        {
             label: "Categories",
             value: "categories"
         },
         {
             label: "Connections",
             value: "connections"
-        },
-        {
-            label: "Sources",
-            value: "sources"
         },
     ]
 

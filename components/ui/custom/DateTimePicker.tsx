@@ -16,6 +16,34 @@ import {
 export function DateTimePicker({ date, setDate }: { date: Date | undefined, setDate: (date: Date | undefined) => void }) {
     const [open, setOpen] = React.useState(false)
 
+    const formatTime = (date: Date | undefined): string => {
+        if (!date) return ""
+        const hours = date.getHours().toString().padStart(2, '0')
+        const minutes = date.getMinutes().toString().padStart(2, '0')
+        const seconds = date.getSeconds().toString().padStart(2, '0')
+        return `${hours}:${minutes}:${seconds}`
+    }
+
+    const handleTimeChange = (timeString: string) => {
+        if (!date) return
+
+        const [hours, minutes, seconds] = timeString.split(':').map(Number)
+        const newDate = new Date(date)
+        newDate.setHours(hours, minutes, seconds || 0)
+        setDate(newDate)
+    }
+
+    const handleDateSelect = (selectedDate: Date | undefined) => {
+        if (!selectedDate) return
+
+        const newDate = new Date(selectedDate)
+        if (date) {
+            newDate.setHours(date.getHours(), date.getMinutes(), date.getSeconds())
+        }
+        setDate(newDate)
+        setOpen(false)
+    }
+
     return (
         <div className="flex gap-1 justify-between w-full">
             <div className="flex flex-col gap-1 w-1/2">
@@ -38,10 +66,7 @@ export function DateTimePicker({ date, setDate }: { date: Date | undefined, setD
                             mode="single"
                             selected={date}
                             captionLayout="dropdown"
-                            onSelect={(date) => {
-                                setDate(date)
-                                setOpen(false)
-                            }}
+                            onSelect={handleDateSelect}
                         />
                     </PopoverContent>
                 </Popover>
@@ -54,7 +79,8 @@ export function DateTimePicker({ date, setDate }: { date: Date | undefined, setD
                     type="time"
                     id="time-picker"
                     step="1"
-                    defaultValue="10:30:00"
+                    value={formatTime(date)}
+                    onChange={(e) => handleTimeChange(e.target.value)}
                     className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
                 />
             </div>
