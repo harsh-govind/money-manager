@@ -2598,12 +2598,6 @@ export default function DashboardPage() {
                                     setTransactionType(newType);
                                     setTransactionSelectedCardName("");
                                     setTransactionSelectedDestinationCardName("");
-                                    if (newType === 'INCOME' && transactionSource) {
-                                        const selectedSource = sources.find(s => s.id === transactionSource);
-                                        if (selectedSource?.type === 'CREDIT') {
-                                            setTransactionSource("");
-                                        }
-                                    }
                                 }}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select type" />
@@ -2677,12 +2671,7 @@ export default function DashboardPage() {
                                                 No sources yet
                                             </div>
                                         ) : (
-                                            sources.filter(source => {
-                                                if (transactionType === 'INCOME') {
-                                                    return source.type !== 'CREDIT';
-                                                }
-                                                return true;
-                                            }).map((source) => (
+                                            sources.map((source) => (
                                                 <SelectItem key={source.id} value={source.id}>
                                                     {source.type === 'BANK' ? '🏦' : source.type === 'CASH' ? '💵' : '💳'} {source.name}
                                                     {source.type === 'CREDIT' && source.creditLimit ?
