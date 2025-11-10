@@ -364,7 +364,7 @@ export default function DashboardPage() {
 
     const loadCategories = async () => {
         try {
-            const response = await axios.get('/api/category');
+            const response = await axios.get('/api/category?limit=50');
             setCategories(response.data.categories);
         } catch (error) {
             console.error('Error loading categories:', error);
