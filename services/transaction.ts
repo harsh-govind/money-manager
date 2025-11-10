@@ -139,10 +139,6 @@ export async function createTransaction(data: CreateTransactionData) {
             throw new Error('Source not found');
         }
 
-        if (data.type === 'INCOME' && source.type === 'CREDIT') {
-            throw new Error('Income cannot be added to credit card');
-        }
-
         let destination = null;
         if (data.type === 'TRANSFER') {
             if (!data.destinationId) {
@@ -453,10 +449,6 @@ export async function updateTransaction(
 
         if (!newSource) {
             throw new Error('New source not found');
-        }
-
-        if (newType === 'INCOME' && newSource.type === 'CREDIT') {
-            throw new Error('Income cannot be added to credit card');
         }
 
         const newDestination = newType === 'TRANSFER' && newDestinationId

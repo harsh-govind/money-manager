@@ -1170,14 +1170,6 @@ export default function DashboardPage() {
                 return;
             }
 
-            if (transactionType === 'INCOME') {
-                const selectedSource = sources.find(s => s.id === transactionSource);
-                if (selectedSource?.type === 'CREDIT') {
-                    toast.error('Income cannot be added to credit card');
-                    return;
-                }
-            }
-
             if ((transactionType === 'EXPENSE' || transactionType === 'TRANSFER') && transactionSource) {
                 const selectedSource = sources.find(s => s.id === transactionSource);
                 if (selectedSource?.type === 'CREDIT' && selectedSource?.sharedLimit) {
