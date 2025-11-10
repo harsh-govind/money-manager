@@ -98,12 +98,6 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        if (transactionType === 'INCOME' && source.type === 'CREDIT') {
-            return NextResponse.json({
-                message: "Income cannot be added to credit card"
-            }, { status: 400 });
-        }
-
         const transaction = await createTransaction({
             title: transactionTitle,
             description: transactionDescription || undefined,
@@ -178,12 +172,6 @@ export async function PUT(req: NextRequest) {
         if (!source) {
             return NextResponse.json({
                 message: "Source not found"
-            }, { status: 400 });
-        }
-
-        if (transactionType === 'INCOME' && source.type === 'CREDIT') {
-            return NextResponse.json({
-                message: "Income cannot be added to credit card"
             }, { status: 400 });
         }
 
