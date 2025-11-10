@@ -1170,7 +1170,7 @@ export default function DashboardPage() {
                 return;
             }
 
-            if ((transactionType === 'EXPENSE' || transactionType === 'TRANSFER') && transactionSource) {
+            if ((transactionType === 'INCOME' || transactionType === 'EXPENSE' || transactionType === 'TRANSFER') && transactionSource) {
                 const selectedSource = sources.find(s => s.id === transactionSource);
                 if (selectedSource?.type === 'CREDIT' && selectedSource?.sharedLimit) {
                     let cardNamesArray: string[] = [];
@@ -2697,7 +2697,7 @@ export default function DashboardPage() {
                         </div>
 
                         {(() => {
-                            if (transactionType !== 'EXPENSE' && transactionType !== 'TRANSFER') return null;
+                            if (transactionType !== 'INCOME' && transactionType !== 'EXPENSE' && transactionType !== 'TRANSFER') return null;
                             if (!transactionSource) return null;
 
                             const selectedSource = sources.find(s => s.id === transactionSource);
